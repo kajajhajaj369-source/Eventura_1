@@ -1,0 +1,1 @@
+- [EVENTURA Phase 1 boundaries](eventura-phase-1-boundaries.md) — keep elevated roles server-assigned, seed data non-login, and Phase 2 actions as placeholders.

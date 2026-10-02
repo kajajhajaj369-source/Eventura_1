@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "EVENTURA"
+description = "A campus events and club management platform foundation that connects college administrators, clubs, organizers, students, and volunteers in one role-aware workspace."
+version = "1.0.0"
+id = "artifacts/eventura"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23060
+
+[services.development]
+run = "pnpm --filter @workspace/eventura run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/eventura", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/eventura/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23060"
+BASE_PATH = "/"

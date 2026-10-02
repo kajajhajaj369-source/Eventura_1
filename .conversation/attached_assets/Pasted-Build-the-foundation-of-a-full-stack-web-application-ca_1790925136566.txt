@@ -1,0 +1,432 @@
+Build the foundation of a full-stack web application called:
+
+EVENTURA
+“One Platform. Every Campus Event.”
+
+I have attached the EVENTURA project specification PPT. Treat that PPT as the PRIMARY SOURCE OF TRUTH for the product requirements, terminology, workflow, roles, and overall concept.
+
+IMPORTANT:
+Do not attempt to build every feature from the PPT in this first step.
+We are building the application in controlled stages so that the architecture is solid and the major workflows can be implemented properly later.
+
+==================================================
+PHASE 1 — FOUNDATION
+==================================================
+
+Build the technical foundation for EVENTURA.
+
+The application should be structured as a real full-stack application, not a static prototype.
+
+Use a modern stack appropriate for a production-style web application.
+
+Prefer:
+
+- React / Next.js
+- TypeScript
+- Tailwind CSS
+- PostgreSQL-compatible database
+- Secure authentication
+- Role-Based Access Control
+- Reusable components
+- Responsive design
+
+Use Replit's available database/backend capabilities where practical.
+
+==================================================
+1. PRODUCT IDENTITY
+==================================================
+
+Application name:
+
+EVENTURA
+
+Tagline:
+
+One Platform. Every Campus Event.
+
+Description:
+
+A centralized College Event & Club Management Platform connecting:
+
+- College Admin
+- Clubs
+- Organizers
+- Students
+- Volunteers
+
+The goal is to provide one source of truth throughout the campus-event lifecycle.
+
+==================================================
+2. USER ROLES
+==================================================
+
+Create the role architecture for exactly these five roles:
+
+1. College Admin
+2. Club
+3. Organizer
+4. Student
+5. Volunteer
+
+Do NOT treat these as cosmetic UI labels.
+
+The role system must be designed so that permissions can later be enforced on the backend/database.
+
+==================================================
+3. AUTHENTICATION FOUNDATION
+==================================================
+
+Implement:
+
+- Login
+- Sign up
+- Logout
+- Session persistence
+- Protected routes
+- Password/security handling appropriate to the selected authentication system
+
+After login, users should be routed to the correct dashboard according to their role.
+
+Create a proper user/profile model.
+
+Store:
+
+- user ID
+- name
+- email
+- role
+- profile information
+- created timestamp
+- updated timestamp
+
+==================================================
+4. ROLE-BASED ACCESS CONTROL
+==================================================
+
+Create the RBAC foundation.
+
+At minimum:
+
+ADMIN
+- campus-wide access
+
+CLUB
+- club-level access
+
+ORGANIZER
+- event-level access
+
+STUDENT
+- own user data
+
+VOLUNTEER
+- assigned event/task data
+
+IMPORTANT SECURITY REQUIREMENT:
+
+Do not rely only on frontend checks.
+
+Structure the backend/database authorization so that unauthorized users cannot simply access another role's data by changing a URL or request.
+
+Keep the permission system centralized and reusable.
+
+==================================================
+5. DATABASE FOUNDATION
+==================================================
+
+Create the initial database schema needed for the entire EVENTURA system.
+
+At minimum establish the foundation for:
+
+users/profiles
+roles
+colleges
+departments
+clubs
+club members
+events
+event registrations
+attendance
+volunteer assignments
+tasks
+budgets
+expenses
+feedback
+certificates
+notifications
+audit logs
+
+Do not overbuild all fields yet.
+
+The important requirement is to establish clean relationships and IDs so later phases can extend the schema without rebuilding the entire database.
+
+Use:
+
+- primary keys
+- foreign keys
+- timestamps
+- appropriate unique constraints
+- useful indexes
+- status fields
+
+Use UUIDs where appropriate.
+
+==================================================
+6. APPLICATION STRUCTURE
+==================================================
+
+Create a clean application structure.
+
+Separate:
+
+- pages/routes
+- reusable UI components
+- layouts
+- authentication
+- role/permission logic
+- database access
+- validation
+- utilities
+- shared types
+
+Avoid putting the entire application into a few giant files.
+
+Make the architecture easy to extend in later phases.
+
+==================================================
+7. GLOBAL UI STRUCTURE
+==================================================
+
+Create the main application shell.
+
+Use a professional SaaS-style interface.
+
+Visual direction:
+
+- modern
+- clean
+- professional
+- campus technology platform
+- blue/purple visual identity
+- light backgrounds
+- rounded cards
+- strong typography
+- subtle gradients
+- minimal but polished animations
+
+Create:
+
+- top navigation
+- responsive sidebar
+- user/profile menu
+- notification placeholder
+- role-aware navigation
+- responsive mobile layout
+
+Do not spend excessive effort on decorative animations.
+
+Functionality and architecture are more important.
+
+==================================================
+8. INITIAL DASHBOARDS
+==================================================
+
+Create the dashboard shells for all five roles.
+
+ADMIN DASHBOARD
+
+Show placeholders/initial components for:
+
+- Total Events
+- Pending Approvals
+- Total Registrations
+- Attendance
+- Clubs
+- Finance
+- Certificates
+- Analytics
+
+CLUB DASHBOARD
+
+Show:
+
+- Club overview
+- Members
+- Organizers
+- Events
+- Templates
+- Analytics
+
+ORGANIZER DASHBOARD
+
+Show:
+
+- My Events
+- Registrations
+- Attendance
+- Volunteers
+- Tasks
+- Finance
+- Feedback
+- Certificates
+- Analytics
+
+STUDENT DASHBOARD
+
+Show:
+
+- Discover Events
+- My Registrations
+- QR Passes
+- Attendance
+- Feedback
+- Certificates
+
+VOLUNTEER DASHBOARD
+
+Show:
+
+- Assigned Events
+- Tasks
+- Duty Schedule
+- Attendance
+- Profile
+
+These are dashboard foundations only.
+
+Do NOT yet implement all the advanced functionality behind them.
+
+==================================================
+9. ROUTING
+==================================================
+
+Create protected routes for each role.
+
+Example conceptual structure:
+
+/login
+/signup
+
+/admin
+/admin/events
+/admin/approvals
+/admin/clubs
+/admin/analytics
+
+/club
+/club/events
+/club/members
+
+/organizer
+/organizer/events
+/organizer/registrations
+/organizer/attendance
+/organizer/volunteers
+/organizer/finance
+
+/student
+/student/events
+/student/registrations
+/student/qr
+/student/certificates
+
+/volunteer
+/volunteer/events
+/volunteer/tasks
+/volunteer/schedule
+
+Use route protection based on authenticated role.
+
+==================================================
+10. DEMO USERS
+==================================================
+
+Create development/demo accounts or seed data for:
+
+- 1 Admin
+- 1 Club user
+- 1 Organizer
+- 3 Students
+- 2 Volunteers
+
+Use clearly identifiable demo data.
+
+Do not expose sensitive secrets in frontend code.
+
+==================================================
+11. DO NOT BUILD YET
+==================================================
+
+Do NOT fully implement these in this phase:
+
+- Event creation wizard
+- Event approval logic
+- Student registration
+- QR generation
+- QR scanner
+- Attendance validation
+- Volunteer task engine
+- Finance calculations
+- Feedback
+- Certificate generation
+- Advanced analytics
+- Reports
+
+We will implement those in later phases.
+
+You may create their database foundations and navigation placeholders.
+
+==================================================
+12. IMPORTANT PRODUCT STRUCTURE
+==================================================
+
+The eventual EVENTURA lifecycle is:
+
+College setup
+→ Club management
+→ Event creation
+→ Event submission
+→ Admin approval
+→ Event publishing
+→ Student registration
+→ QR pass
+→ Event-day operations
+→ QR attendance
+→ Volunteers/tasks
+→ Finance
+→ Feedback
+→ Eligibility
+→ Certificates
+→ Analytics
+→ Reports
+
+Design the foundation so this complete lifecycle can be implemented without major architectural rewrites.
+
+==================================================
+13. QUALITY CHECK
+==================================================
+
+Before finishing this phase:
+
+- Verify the app starts successfully.
+- Verify all routes compile.
+- Verify login/session handling works.
+- Verify role-based routing works.
+- Verify unauthorized routes are blocked.
+- Verify database connection works.
+- Verify the database schema is created correctly.
+- Verify there are no obvious runtime errors.
+- Verify the UI is responsive.
+- Verify navigation links do not lead to broken pages.
+
+Do not merely describe what you would build.
+
+Actually implement PHASE 1.
+
+When complete, provide a concise summary of:
+1. what was implemented,
+2. database structure created,
+3. authentication/RBAC status,
+4. what remains for Phase 2.
+
+Do not start Phase 2 automatically.
