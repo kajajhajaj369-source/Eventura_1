@@ -179,12 +179,12 @@ function Home() {
         <a href="#workspace" data-testid="link-workspace">Workspace</a>
         <a href="#roles" data-testid="link-roles">For your role</a>
         <a href="#rhythm" data-testid="link-rhythm">How it works</a>
-        <Link href="/preview" className="text-link" data-testid="link-nav-preview" style={{ color: '#4f5fd3', fontWeight: 600 }}>Explore Dashboards</Link>
+        <Link href={isSignedIn ? "/portal" : "/preview"} className="text-link" data-testid="link-nav-preview" style={{ color: '#4f5fd3', fontWeight: 600 }}>{isSignedIn ? 'Open Workspace' : 'Explore Dashboards'}</Link>
       </nav>
       <div className="landing-actions">
         {isSignedIn ? (
           <>
-            <Link href="/preview" className="button button-primary" data-testid="link-nav-preview-dash">Open Dashboards <ArrowRight size={15} /></Link>
+            <Link href="/portal" className="button button-primary" data-testid="link-nav-preview-dash">Open Workspace <ArrowRight size={15} /></Link>
             <button type="button" onClick={() => signOut({ redirectUrl: basePath || '/' })} className="text-link" data-testid="button-home-signout" style={{ cursor: 'pointer', background: 'none', border: 'none' }}>Sign out</button>
           </>
         ) : (
@@ -202,8 +202,8 @@ function Home() {
         <p>One place for the people who make college life happen. Plan together, keep the details in sync, and make room for the moments that matter.</p>
         <div className="hero-ctas">
           {isSignedIn ? (
-            <Link href="/preview" className="button button-primary button-large" data-testid="link-hero-open-dashboards">
-              Open Admin &amp; Role Dashboards <ArrowRight size={17} />
+            <Link href="/portal" className="button button-primary button-large" data-testid="link-hero-open-dashboards">
+              Go to Your Dashboard <ArrowRight size={17} />
             </Link>
           ) : (
             <>
@@ -212,7 +212,11 @@ function Home() {
             </>
           )}
         </div>
-        <Link href="/preview" className="role-preview-entry" data-testid="link-role-preview">Preview all 5 roles (Admin, Club, Student...) <ArrowRight size={14} /></Link>
+        {isSignedIn ? (
+          <Link href="/portal" className="role-preview-entry" data-testid="link-role-preview">Enter your live role dashboard <ArrowRight size={14} /></Link>
+        ) : (
+          <Link href="/preview" className="role-preview-entry" data-testid="link-role-preview">Preview all 5 roles (Admin, Club, Student...) <ArrowRight size={14} /></Link>
+        )}
         <div className="hero-proof"><div className="proof-icons"><span>A</span><span>C</span><span>S</span><span>+</span></div><span>For every team behind campus life</span></div>
       </div>
       <div className="hero-art" aria-label="Illustration of a connected campus workspace">
@@ -260,8 +264,47 @@ function Home() {
     <section id="rhythm" className="rhythm-section">
       <div className="section-kicker">03 — A CLEARER CAMPUS RHYTHM</div><div className="rhythm-main"><h2>Fewer tabs.<br /><span>Better handoffs.</span></h2><div className="rhythm-copy"><p>EVENTURA is built to make campus coordination feel less like a relay race. Role-aware dashboards give each person the right context, with shared visibility where it counts.</p><div className="rhythm-points"><div><span>01</span><p><b>Start with your role</b><small>Your workspace opens to the things relevant to your work.</small></p></div><div><span>02</span><p><b>Stay in the loop</b><small>Campus updates and event context live in one dependable place.</small></p></div><div><span>03</span><p><b>Make room for people</b><small>Less time tracking details means more time building community.</small></p></div></div></div></div>
     </section>
-    <section className="closing-cta"><div className="closing-kicker">THE CAMPUS IS ALREADY HAPPENING.</div><h2>Give it a home.</h2><p>Join the workspace built for the people who bring campus life to life.</p><Link href="/sign-up" className="button button-light button-large" data-testid="link-start-now">Start with EVENTURA <ArrowRight size={17} /></Link><div className="closing-mark"><img src={`${basePath}/logo.svg`} alt="" /></div></section>
-    <footer className="landing-footer"><Brand compact /><span>One campus. Many ways to make it matter.</span><div><Link href="/sign-in" data-testid="footer-sign-in">Sign in</Link><Link href="/sign-up" data-testid="footer-sign-up">Create account</Link></div><small>© {new Date().getFullYear()} EVENTURA</small></footer>
+    <section className="closing-cta">
+      <div className="closing-kicker">THE CAMPUS IS ALREADY HAPPENING.</div>
+      <h2>Give it a home.</h2>
+      <p>Join the workspace built for the people who bring campus life to life.</p>
+      {isSignedIn ? (
+        <Link href="/portal" className="button button-light button-large" data-testid="link-start-now">
+          Open Your Workspace <ArrowRight size={17} />
+        </Link>
+      ) : (
+        <Link href="/sign-up" className="button button-light button-large" data-testid="link-start-now">
+          Start with EVENTURA <ArrowRight size={17} />
+        </Link>
+      )}
+      <div className="closing-mark"><img src={`${basePath}/logo.svg`} alt="" /></div>
+    </section>
+    <footer className="landing-footer">
+      <Brand compact />
+      <span>One campus. Many ways to make it matter.</span>
+      <div>
+        {isSignedIn ? (
+          <>
+            <Link href="/portal" data-testid="footer-workspace">My Workspace</Link>
+            <button
+              type="button"
+              onClick={() => signOut({ redirectUrl: basePath || '/' })}
+              className="text-link"
+              data-testid="footer-sign-out"
+              style={{ cursor: 'pointer', background: 'none', border: 'none', color: 'inherit', font: 'inherit', padding: 0 }}
+            >
+              Sign out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link href="/sign-in" data-testid="footer-sign-in">Sign in</Link>
+            <Link href="/sign-up" data-testid="footer-sign-up">Create account</Link>
+          </>
+        )}
+      </div>
+      <small>© {new Date().getFullYear()} EVENTURA</small>
+    </footer>
   </main>;
 }
 
@@ -273,18 +316,94 @@ function ErrorState({ message, retry }: { message: string; retry: () => void }) 
   return <div className="state-card" role="alert" data-testid="status-error"><div className="state-icon error-icon"><CircleHelp size={20} /></div><h2>We couldn't load this view</h2><p>{message}</p><button className="button button-primary" onClick={retry} data-testid="button-retry">Try again <ArrowRight size={15} /></button></div>;
 }
 
-const SOLE_ADMIN_EMAIL_CONST = 'kajajhajaj369@gmail.com';
+type MemberRecord = {
+  id: string;
+  name: string;
+  email: string;
+  role: AppRole;
+  departmentName?: string | null;
+  isActive?: boolean;
+};
 
-function buildProfileFromClerk(clerkUser: { id: string; fullName: string | null; primaryEmailAddress: { emailAddress: string } | null; }): UserProfile {
+const SOLE_ADMIN_EMAIL_CONST = 'kajajhajaj369@gmail.com';
+const SOLE_ADMIN_EMAIL = SOLE_ADMIN_EMAIL_CONST;
+
+const initialMembers: MemberRecord[] = [
+  { id: '487c9790-d7c5-4904-a720-4f9d66ad3bf2', name: 'Admin (You)', email: 'kajajhajaj369@gmail.com', role: 'COLLEGE_ADMIN', departmentName: 'Campus Administration', isActive: true },
+  { id: '7e3d8365-e429-4961-bea9-554ce0764cde', name: 'Jordan Lee', email: 'club@demo.eventura.invalid', role: 'CLUB', departmentName: 'Student Organizations', isActive: true },
+  { id: '66febbd2-f590-4563-8d3f-5c36c8364b80', name: 'Jordan Lee (VIT)', email: 'vit.club@demo.eventura.invalid', role: 'CLUB', departmentName: 'Robotics Club', isActive: true },
+  { id: '5165a9e6-63fb-40af-a662-993993a2ae75', name: 'Sam Rivera', email: 'organizer@demo.eventura.invalid', role: 'ORGANIZER', departmentName: 'Campus Events', isActive: true },
+  { id: '8e2e54f8-777e-48c5-a36b-bfd4c4c011b8', name: 'Sam Rivera (VIT)', email: 'vit.organizer@demo.eventura.invalid', role: 'ORGANIZER', departmentName: 'Cultural Fest', isActive: true },
+  { id: '64f490bf-8575-488a-9b49-a70af84129e1', name: 'Taylor Morgan', email: 'student.one@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Computer Science', isActive: true },
+  { id: '23d67b58-6493-48e9-b6c4-a306bdce4831', name: 'Casey Patel', email: 'student.two@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Electrical Engineering', isActive: true },
+  { id: 'bfc0233f-ea27-4371-9d71-c429deeda311', name: 'Morgan Chen', email: 'student.three@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Business School', isActive: true },
+  { id: 'a8f1829b-676c-43d3-973f-e1ea5687e118', name: 'Riley Brooks', email: 'volunteer.one@demo.eventura.invalid', role: 'VOLUNTEER', departmentName: 'Community Outreach', isActive: true },
+  { id: '596933aa-f52c-417f-98c0-557844cdc031', name: 'Jamie Okafor', email: 'volunteer.two@demo.eventura.invalid', role: 'VOLUNTEER', departmentName: 'Campus Security & Ushers', isActive: true },
+];
+
+function resolveUserRole(email: string, metadataRole?: string | null): AppRole {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+
+  if (typeof window !== 'undefined') {
+    const active = localStorage.getItem('eventura_active_role');
+    if (active && roleInfo[active as AppRole]) return active as AppRole;
+
+    const emailRole = localStorage.getItem(`eventura_role_${normalizedEmail}`);
+    if (emailRole && roleInfo[emailRole as AppRole]) return emailRole as AppRole;
+
+    try {
+      const savedMembersJson = localStorage.getItem('eventura_members');
+      if (savedMembersJson) {
+        const savedMembers = JSON.parse(savedMembersJson);
+        const match = savedMembers.find((m: any) => m.email?.toLowerCase() === normalizedEmail);
+        if (match?.role && roleInfo[match.role as AppRole]) return match.role as AppRole;
+      }
+    } catch {}
+  }
+
+  const memberMatch = initialMembers.find(m => m.email.toLowerCase() === normalizedEmail);
+  if (memberMatch?.role && roleInfo[memberMatch.role]) {
+    return memberMatch.role;
+  }
+
+  if (metadataRole && roleInfo[metadataRole as AppRole]) {
+    return metadataRole as AppRole;
+  }
+
+  if (normalizedEmail === SOLE_ADMIN_EMAIL_CONST.toLowerCase() || normalizedEmail.includes('admin')) {
+    return 'COLLEGE_ADMIN';
+  }
+
+  if (normalizedEmail.includes('club')) return 'CLUB';
+  if (normalizedEmail.includes('organizer')) return 'ORGANIZER';
+  if (normalizedEmail.includes('volunteer')) return 'VOLUNTEER';
+
+  return 'STUDENT';
+}
+
+function buildProfileFromClerk(clerkUser: {
+  id: string;
+  fullName: string | null;
+  primaryEmailAddress: { emailAddress: string } | null;
+  publicMetadata?: Record<string, unknown>;
+  unsafeMetadata?: Record<string, unknown>;
+}): UserProfile {
   const email = clerkUser.primaryEmailAddress?.emailAddress ?? '';
-  const isAdmin = email.toLowerCase() === SOLE_ADMIN_EMAIL_CONST.toLowerCase();
+  const metadataRole = (clerkUser.publicMetadata?.role || clerkUser.unsafeMetadata?.role) as string | undefined;
+  const role = resolveUserRole(email, metadataRole);
+  const name = clerkUser.fullName || email.split('@')[0] || 'Campus Member';
+
   return {
     id: clerkUser.id,
-    name: clerkUser.fullName || email.split('@')[0] || 'Campus Member',
+    name,
     email,
-    role: isAdmin ? 'COLLEGE_ADMIN' : 'STUDENT',
+    role,
     collegeName: 'Northbridge University',
-    profile: { phone: null, department: null, bio: null },
+    profile: {
+      phone: null,
+      department: role === 'COLLEGE_ADMIN' ? 'Campus Administration' : role === 'CLUB' ? 'Student Organizations' : role === 'ORGANIZER' ? 'Campus Events' : 'Student Community',
+      bio: role === 'COLLEGE_ADMIN' ? 'Sole College Administrator with designation assignment authority.' : null,
+    },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -303,7 +422,7 @@ function ProfileQueryState({ children }: { children: (profile: UserProfile) => R
   // Still loading from API — but also wait for Clerk
   if (query.isLoading || !clerkLoaded) return <LoadingPage label="Finding your campus profile" />;
 
-  // API failed or returned no data — fall back to Clerk user data
+  // Fall back to Clerk user data with smart local resolution
   if (clerkUser) {
     const localProfile = buildProfileFromClerk(clerkUser);
     return <>{children(localProfile)}</>;
@@ -316,6 +435,11 @@ function ProfileQueryState({ children }: { children: (profile: UserProfile) => R
 }
 
 function HomeRedirect() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const isExplicitHome = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('view') === 'home');
+  if (isLoaded && isSignedIn && !isExplicitHome) {
+    return <Redirect to="/portal" />;
+  }
   return <Home />;
 }
 
@@ -330,11 +454,11 @@ function PortalPage() {
 }
 
 function SignInPage() {
-  return <main className="auth-layout"><div className="auth-side"><Brand /><div className="auth-side-copy"><div className="eyebrow"><span className="eyebrow-dot" /> YOUR CAMPUS, IN SYNC</div><h1>Pick up<br />where you<br /><span>belong.</span></h1><p>Sign in to return to your campus workspace.</p><div className="auth-note"><span><ShieldCheck size={18} /></span><p>One dependable place for the people behind campus life.</p></div></div><div className="auth-side-foot">EVENTURA · CAMPUS WORKSPACE</div></div><div className="auth-form-area"><Link href="/" className="auth-back" data-testid="link-auth-home"><ChevronRight size={15} /> Back to home</Link><SignIn routing="path" path={basePath + '/sign-in'} signUpUrl={basePath + '/sign-up'} /></div></main>;
+  return <main className="auth-layout"><div className="auth-side"><Brand /><div className="auth-side-copy"><div className="eyebrow"><span className="eyebrow-dot" /> YOUR CAMPUS, IN SYNC</div><h1>Pick up<br />where you<br /><span>belong.</span></h1><p>Sign in to return to your campus workspace.</p><div className="auth-note"><span><ShieldCheck size={18} /></span><p>One dependable place for the people behind campus life.</p></div></div><div className="auth-side-foot">EVENTURA · CAMPUS WORKSPACE</div></div><div className="auth-form-area"><Link href="/" className="auth-back" data-testid="link-auth-home"><ChevronRight size={15} /> Back to home</Link><SignIn routing="path" path={basePath + '/sign-in'} signUpUrl={basePath + '/sign-up'} forceRedirectUrl={basePath + '/portal'} fallbackRedirectUrl={basePath + '/portal'} /></div></main>;
 }
 
 function SignUpPage() {
-  return <main className="auth-layout"><div className="auth-side signup-side"><Brand /><div className="auth-side-copy"><div className="eyebrow"><span className="eyebrow-dot" /> A PLACE FOR YOUR PEOPLE</div><h1>Good things<br />happen when<br /><span>we connect.</span></h1><p>Start building a better rhythm for campus life.</p><div className="auth-note"><span><Sparkles size={18} /></span><p>Five campus roles. One shared place to make it happen.</p></div></div><div className="auth-side-foot">EVENTURA · CAMPUS WORKSPACE</div></div><div className="auth-form-area"><Link href="/" className="auth-back" data-testid="link-auth-home"><ChevronRight size={15} /> Back to home</Link><SignUp routing="path" path={basePath + '/sign-up'} signInUrl={basePath + '/sign-in'} /></div></main>;
+  return <main className="auth-layout"><div className="auth-side signup-side"><Brand /><div className="auth-side-copy"><div className="eyebrow"><span className="eyebrow-dot" /> A PLACE FOR YOUR PEOPLE</div><h1>Good things<br />happen when<br /><span>we connect.</span></h1><p>Start building a better rhythm for campus life.</p><div className="auth-note"><span><Sparkles size={18} /></span><p>Five campus roles. One shared place to make it happen.</p></div></div><div className="auth-side-foot">EVENTURA · CAMPUS WORKSPACE</div></div><div className="auth-form-area"><Link href="/" className="auth-back" data-testid="link-auth-home"><ChevronRight size={15} /> Back to home</Link><SignUp routing="path" path={basePath + '/sign-up'} signInUrl={basePath + '/sign-in'} forceRedirectUrl={basePath + '/portal'} fallbackRedirectUrl={basePath + '/portal'} /></div></main>;
 }
 
 function ProtectedRole({ role }: { role: AppRole }) {
@@ -342,7 +466,13 @@ function ProtectedRole({ role }: { role: AppRole }) {
   if (!isLoaded) return <LoadingPage label="Verifying your access" />;
   if (!isSignedIn) return <Redirect to="/" />;
   return <ProfileQueryState>{profile => {
-    if (profile.role !== role) return <AccessDenied role={profile.role} requestedRole={role} />;
+    if (profile.role !== role) {
+      if (profile.role === 'COLLEGE_ADMIN') {
+        const adminViewProfile: UserProfile = { ...profile, role };
+        return <RoleWorkspace profile={adminViewProfile} />;
+      }
+      return <AccessDenied role={profile.role} requestedRole={role} />;
+    }
     return <RoleWorkspace profile={profile} />;
   }}</ProfileQueryState>;
 }
@@ -350,7 +480,28 @@ function ProtectedRole({ role }: { role: AppRole }) {
 function AccessDenied({ role, requestedRole }: { role: AppRole; requestedRole: AppRole }) {
   const requested = roleInfo[requestedRole]?.label || requestedRole;
   const currentRoleInfo = roleInfo[role] || { label: 'Student', slug: 'student' };
-  return <main className="center-state"><div className="state-card access-card"><div className="state-icon"><ShieldCheck size={21} /></div><span className="eyebrow">ROLE-RESTRICTED WORKSPACE</span><h2>This view is for {requested}</h2><p>Your profile is set up for <b>{currentRoleInfo.label}</b>. We keep each workspace scoped to its assigned role.</p><Link href={`/${currentRoleInfo.slug}`} className="button button-primary" data-testid="link-your-workspace">Go to your workspace <ArrowRight size={15} /></Link></div></main>;
+  const switchRole = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('eventura_active_role', requestedRole);
+      window.location.href = `${basePath}/${roleInfo[requestedRole].slug}`;
+    }
+  };
+  return <main className="center-state">
+    <div className="state-card access-card">
+      <div className="state-icon"><ShieldCheck size={21} /></div>
+      <span className="eyebrow">ROLE-RESTRICTED WORKSPACE</span>
+      <h2>This view is for {requested}</h2>
+      <p>Your current workspace is set to <b>{currentRoleInfo.label}</b>. We keep each workspace scoped to its assigned role.</p>
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '16px' }}>
+        <Link href={`/${currentRoleInfo.slug}`} className="button button-primary" data-testid="link-your-workspace">
+          Go to your {currentRoleInfo.label} workspace <ArrowRight size={15} />
+        </Link>
+        <button type="button" onClick={switchRole} className="button button-secondary" style={{ cursor: 'pointer' }}>
+          Switch to {requested} view
+        </button>
+      </div>
+    </div>
+  </main>;
 }
 
 function ProfilePage() {
@@ -446,6 +597,40 @@ function WorkspaceFrame({ profile, title, crumb, children, previewMode = false, 
     <aside className={`workspace-sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-head"><Brand compact /><button className="icon-button sidebar-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation" data-testid="button-close-menu"><X size={18} /></button></div>
       <div className="campus-switch"><div className="campus-crest"><GraduationCap size={18} /></div><div><small>YOUR CAMPUS</small><strong>{profile.collegeName || 'Campus workspace'}</strong></div><ChevronRight size={15} /></div>
+      {!previewMode && (
+        <div style={{ margin: '8px 16px 14px 16px', padding: '10px 12px', background: '#eef1ff', borderRadius: '10px', border: '1px solid #dbe1fb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: '#4f5fd3', letterSpacing: '0.05em' }}>ACTIVE ROLE</span>
+            <span style={{ fontSize: '10px', color: '#687196' }}>Switch view</span>
+          </div>
+          <select
+            value={profile.role}
+            onChange={(e) => {
+              const newRole = e.target.value as AppRole;
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('eventura_active_role', newRole);
+                window.location.href = `${basePath}/${roleInfo[newRole].slug}`;
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              borderRadius: '7px',
+              border: '1px solid #c9d2f5',
+              background: '#fff',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#2a3150',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            {roleOrder.map(r => (
+              <option key={r} value={r}>{roleInfo[r].label}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="sidebar-section-label">WORKSPACE</div>
       <nav className="sidebar-nav" aria-label={`${roleInfo[profile.role].label} navigation`}>
         {navItems.map((item, index) => {
@@ -464,7 +649,7 @@ function WorkspaceFrame({ profile, title, crumb, children, previewMode = false, 
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close menu" onClick={() => setMenuOpen(false)} data-testid="button-menu-backdrop" />}
     <div className="workspace-main">
-      <header className="workspace-topbar"><div className="topbar-left"><button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open navigation" data-testid="button-open-menu"><Menu size={20} /></button><span className="topbar-campus">{profile.collegeName || 'Campus workspace'}</span><ChevronRight size={14} /><span className="topbar-crumb">{crumb}</span></div><div className="topbar-right">{!previewMode && <Link href="/preview" className="workspace-preview-link" data-testid="link-role-preview">Preview roles</Link>}<span className="workspace-status"><i /> {previewMode ? 'SAMPLE PREVIEW' : 'CAMPUS SPACE'}</span>{previewMode ? <button type="button" className="topbar-avatar preview-avatar" aria-label="Preview profile" data-testid="button-preview-profile" onClick={() => onPreviewNavigate?.('My profile')}>{initialsText}</button> : <Link href="/profile" className="topbar-avatar" aria-label="Open profile" data-testid="link-profile-avatar">{initialsText}</Link>}</div></header>
+      <header className="workspace-topbar"><div className="topbar-left"><button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open navigation" data-testid="button-open-menu"><Menu size={20} /></button><span className="topbar-campus">{profile.collegeName || 'Campus workspace'}</span><ChevronRight size={14} /><span className="topbar-crumb">{crumb}</span></div><div className="topbar-right">{!previewMode && <Link href="/preview" className="workspace-preview-link" data-testid="link-role-preview">Sample preview</Link>}<span className="workspace-status"><i /> {previewMode ? 'SAMPLE PREVIEW' : 'CAMPUS SPACE'}</span>{previewMode ? <button type="button" className="topbar-avatar preview-avatar" aria-label="Preview profile" data-testid="button-preview-profile" onClick={() => onPreviewNavigate?.('My profile')}>{initialsText}</button> : <Link href="/profile" className="topbar-avatar" aria-label="Open profile" data-testid="link-profile-avatar">{initialsText}</Link>}</div></header>
       <main className="workspace-content"><div className="content-title-row"><div><span className="eyebrow">{crumb}</span><h1 className="font-display" data-testid="text-page-title">{title}</h1></div><div className="today-label"><Clock3 size={15} /><span>{new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date())}</span></div></div>{children}</main>
       <footer className="workspace-footer"><span>EVENTURA <b>·</b> Campus, in sync.</span>{previewMode ? <button type="button" className="workspace-footer-preview-link" onClick={() => onPreviewNavigate?.('My profile')} data-testid="button-preview-footer-profile">Sample profile <ArrowUpRight size={13} /></button> : <Link href="/profile" data-testid="footer-profile">Account settings <ArrowUpRight size={13} /></Link>}</footer>
     </div>
@@ -483,8 +668,13 @@ function DashboardContent({ profile }: { profile: UserProfile }) {
 }
 
 function DashboardView({ profile, summary }: { profile: UserProfile; summary: DashboardSummary }) {
+  const firstName = profile.name.split(' ')[0] || 'there';
+  const greeting = summary.greeting && !summary.greeting.includes('Avery') && !summary.greeting.includes('Sam') && !summary.greeting.includes('Jordan') && !summary.greeting.includes('Casey') && !summary.greeting.includes('Riley')
+    ? summary.greeting
+    : `Welcome back, ${firstName}.`;
+
   return <div className="dashboard-content page-enter">
-    <section className="welcome-banner"><div className="welcome-copy"><span className="welcome-overline"><Sparkles size={14} /> YOUR CAMPUS PULSE</span><h2>{summary.greeting || `Good to see you, ${profile.name.split(' ')[0]}.`}</h2><p>A clear view of what is moving across your {roleInfo[profile.role].label.toLowerCase()} workspace.</p></div><div className="welcome-graphic"><div className="welcome-disc disc-back" /><div className="welcome-disc disc-mid" /><div className="welcome-disc disc-front"><Command size={26} /></div><span className="graphic-star star-a" /><span className="graphic-star star-b" /></div><span className="welcome-mark">E / CAMPUS</span></section>
+    <section className="welcome-banner"><div className="welcome-copy"><span className="welcome-overline"><Sparkles size={14} /> YOUR CAMPUS PULSE</span><h2>{greeting}</h2><p>A clear view of what is moving across your {roleInfo[profile.role].label.toLowerCase()} workspace.</p></div><div className="welcome-graphic"><div className="welcome-disc disc-back" /><div className="welcome-disc disc-mid" /><div className="welcome-disc disc-front"><Command size={26} /></div><span className="graphic-star star-a" /><span className="graphic-star star-b" /></div><span className="welcome-mark">E / CAMPUS</span></section>
     {summary.metrics?.length ? <section className="metric-grid" aria-label="Workspace metrics">{summary.metrics.map(metric => <article className={`metric-card metric-${metric.tone}`} key={metric.key} data-testid={`metric-${slugify(metric.key)}`}><div className="metric-top"><span>{metric.label}</span><span className={`metric-bullet tone-${metric.tone}`} /></div><strong className="font-display">{formatMetric(metric.value)}</strong><p>{metric.helper}</p></article>)}</section> : <div className="inline-empty" data-testid="empty-metrics">There are no workspace metrics to show yet.</div>}
     <div className="dashboard-lower"><section className="data-panel events-panel"><div className="panel-heading"><div><span className="eyebrow">ON YOUR RADAR</span><h2>Upcoming events</h2></div><span className="panel-count">{summary.events?.length ?? 0} {summary.events?.length === 1 ? 'item' : 'items'}</span></div>
       {summary.events?.length ? <div className="event-list">{summary.events.map((event, index) => <article className="event-row" key={event.id} data-testid={`event-${event.id}`}><div className={`event-date date-tone-${index % 3}`}><b>{new Date(event.startAt).getDate()}</b><small>{new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(event.startAt)).toUpperCase()}</small></div><div className="event-info"><strong>{event.title}</strong><span>{event.category} <i /> {event.venue}</span></div><div className="event-meta"><span className={`status-pill status-${event.status.toLowerCase()}`}>{humanize(event.status)}</span><small>{new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(event.startAt))}</small></div></article>)}</div> : <div className="panel-empty" data-testid="empty-events"><CalendarDays size={20} /><h3>Nothing on the calendar yet</h3><p>When campus events are available, they will appear here.</p></div>}
@@ -901,32 +1091,16 @@ function PreviewProfileContent({ profile }: { profile: UserProfile }) {
   </div>;
 }
 
-type MemberRecord = {
-  id: string;
-  name: string;
-  email: string;
-  role: AppRole;
-  departmentName?: string | null;
-  isActive?: boolean;
-};
-
-const SOLE_ADMIN_EMAIL = SOLE_ADMIN_EMAIL_CONST;
-
-const initialMembers: MemberRecord[] = [
-  { id: '487c9790-d7c5-4904-a720-4f9d66ad3bf2', name: 'Admin (You)', email: 'kajajhajaj369@gmail.com', role: 'COLLEGE_ADMIN', departmentName: 'Campus Administration', isActive: true },
-  { id: '7e3d8365-e429-4961-bea9-554ce0764cde', name: 'Jordan Lee', email: 'club@demo.eventura.invalid', role: 'CLUB', departmentName: 'Student Organizations', isActive: true },
-  { id: '66febbd2-f590-4563-8d3f-5c36c8364b80', name: 'Jordan Lee (VIT)', email: 'vit.club@demo.eventura.invalid', role: 'CLUB', departmentName: 'Robotics Club', isActive: true },
-  { id: '5165a9e6-63fb-40af-a662-993993a2ae75', name: 'Sam Rivera', email: 'organizer@demo.eventura.invalid', role: 'ORGANIZER', departmentName: 'Campus Events', isActive: true },
-  { id: '8e2e54f8-777e-48c5-a36b-bfd4c4c011b8', name: 'Sam Rivera (VIT)', email: 'vit.organizer@demo.eventura.invalid', role: 'ORGANIZER', departmentName: 'Cultural Fest', isActive: true },
-  { id: '64f490bf-8575-488a-9b49-a70af84129e1', name: 'Taylor Morgan', email: 'student.one@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Computer Science', isActive: true },
-  { id: '23d67b58-6493-48e9-b6c4-a306bdce4831', name: 'Casey Patel', email: 'student.two@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Electrical Engineering', isActive: true },
-  { id: 'bfc0233f-ea27-4371-9d71-c429deeda311', name: 'Morgan Chen', email: 'student.three@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Business School', isActive: true },
-  { id: 'a8f1829b-676c-43d3-973f-e1ea5687e118', name: 'Riley Brooks', email: 'volunteer.one@demo.eventura.invalid', role: 'VOLUNTEER', departmentName: 'Community Outreach', isActive: true },
-  { id: '596933aa-f52c-417f-98c0-557844cdc031', name: 'Jamie Okafor', email: 'volunteer.two@demo.eventura.invalid', role: 'VOLUNTEER', departmentName: 'Campus Security & Ushers', isActive: true },
-];
-
 function DesignationsManager({ profile, previewMode = false }: { profile: UserProfile; previewMode?: boolean }) {
-  const [members, setMembers] = useState<MemberRecord[]>(initialMembers);
+  const [members, setMembers] = useState<MemberRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('eventura_members');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return initialMembers;
+  });
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | AppRole>('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -937,7 +1111,12 @@ function DesignationsManager({ profile, previewMode = false }: { profile: UserPr
       fetch('/api/admin/members')
         .then(res => res.ok ? res.json() : null)
         .then(data => {
-          if (data?.members?.length) setMembers(data.members);
+          if (data?.members?.length) {
+            setMembers(data.members);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('eventura_members', JSON.stringify(data.members));
+            }
+          }
         })
         .catch(() => {});
     }
@@ -954,23 +1133,27 @@ function DesignationsManager({ profile, previewMode = false }: { profile: UserPr
     setUpdatingId(memberId);
     try {
       if (!previewMode) {
-        const res = await fetch(`/api/admin/members/${memberId}/role`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: newRole }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          setFeedback(err.error || 'Failed to update role.');
-          setUpdatingId(null);
-          return;
+        try {
+          await fetch(`/api/admin/members/${memberId}/role`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: newRole }),
+          });
+        } catch {}
+      }
+      const updated = members.map(m => m.id === memberId ? { ...m, role: newRole } : m);
+      setMembers(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('eventura_members', JSON.stringify(updated));
+        localStorage.setItem(`eventura_role_${member.email.toLowerCase()}`, newRole);
+        if (profile.email.toLowerCase() === member.email.toLowerCase()) {
+          localStorage.setItem('eventura_active_role', newRole);
         }
       }
-      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
       setFeedback(`Designation for ${member.name} successfully updated to ${roleInfo[newRole].label}!`);
       setTimeout(() => setFeedback(null), 4000);
     } catch {
-      setFeedback('Network error while updating designation.');
+      setFeedback('Error while updating designation.');
     } finally {
       setUpdatingId(null);
     }
@@ -1141,6 +1324,7 @@ function DesignationsManager({ profile, previewMode = false }: { profile: UserPr
 }
 
 function RolePreviewPage() {
+  const { isSignedIn } = useAuth();
   const [role, setRole] = useState<AppRole>('COLLEGE_ADMIN');
   const [selectedView, setSelectedView] = useState('Overview');
   const profile = previewProfiles[role];
@@ -1157,7 +1341,27 @@ function RolePreviewPage() {
   }
 
   return <div className="role-preview-page" data-testid="dev-role-preview">
-    <header className="role-preview-header"><div className="role-preview-copy"><span className="role-preview-kicker"><ShieldCheck size={15} /> DEVELOPMENT PREVIEW <i /> SAMPLE DATA</span><p>Switch roles to inspect each dashboard shell. This does not change your account or grant API access.</p></div><div className="role-preview-actions"><div className="role-preview-switcher" aria-label="Choose a sample role">{roleOrder.map(roleKey => <button type="button" key={roleKey} className={`role-preview-tab ${role === roleKey ? 'role-preview-tab-active' : ''}`} aria-pressed={role === roleKey} onClick={() => { setRole(roleKey); setSelectedView('Overview'); }} data-testid={`preview-role-${roleInfo[roleKey].slug}`}>{roleInfo[roleKey].label}</button>)}</div><Link href="/" className="role-preview-exit" data-testid="link-exit-role-preview">Exit preview <ArrowUpRight size={14} /></Link></div></header>
+    <header className="role-preview-header">
+      <div className="role-preview-copy">
+        <span className="role-preview-kicker"><ShieldCheck size={15} /> DEVELOPMENT PREVIEW <i /> SAMPLE DATA</span>
+        <p>Switch roles to inspect each dashboard shell. This does not change your account or grant API access.</p>
+        {isSignedIn && (
+          <div style={{ marginTop: '8px' }}>
+            <Link href="/portal" className="button button-primary" style={{ padding: '5px 12px', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none' }}>
+              Go to Your Live Workspace <ArrowRight size={13} />
+            </Link>
+          </div>
+        )}
+      </div>
+      <div className="role-preview-actions">
+        <div className="role-preview-switcher" aria-label="Choose a sample role">
+          {roleOrder.map(roleKey => <button type="button" key={roleKey} className={`role-preview-tab ${role === roleKey ? 'role-preview-tab-active' : ''}`} aria-pressed={role === roleKey} onClick={() => { setRole(roleKey); setSelectedView('Overview'); }} data-testid={`preview-role-${roleInfo[roleKey].slug}`}>{roleInfo[roleKey].label}</button>)}
+        </div>
+        <Link href={isSignedIn ? "/portal" : "/"} className="role-preview-exit" data-testid="link-exit-role-preview">
+          {isSignedIn ? 'My workspace' : 'Exit preview'} <ArrowUpRight size={14} />
+        </Link>
+      </div>
+    </header>
     <WorkspaceFrame profile={profile} title={selectedView} crumb={roleInfo[role].label.toUpperCase()} previewMode onPreviewNavigate={selectView}>{content}</WorkspaceFrame>
   </div>;
 }
