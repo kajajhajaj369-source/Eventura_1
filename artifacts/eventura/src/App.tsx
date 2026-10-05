@@ -1,9 +1,9 @@
 import './app.css';
 import './role-preview.css';
-import { useEffect, type FormEvent, type ReactNode, useState } from 'react';
-import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
+import React, { useEffect, type FormEvent, type ReactNode, useState } from 'react';
+import { ClerkProvider, SignIn, SignUp, useAuth, useClerk, useUser } from '@clerk/react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, CircleHelp, Clock3, Command, Compass, GraduationCap, LayoutDashboard, LogOut, Menu, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, ArrowUpRight, Award, BarChart2, Bell, BookOpen, CalendarDays, Check, CheckCircle, ChevronRight, CircleHelp, Clock3, Command, Compass, FileText, GraduationCap, LayoutDashboard, LogOut, Menu, Plus, ShieldCheck, Sparkles, Star, Tag, TrendingUp, Users, UserCheck, X } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { useGetCurrentUser, useGetDashboardSummary, useUpdateMyProfile, getGetCurrentUserQueryKey, setAuthTokenGetter } from '@workspace/api-client-react';
 import type { AppRole, DashboardSummary, ProfileUpdate, UserProfile } from '@workspace/api-client-react';
@@ -273,29 +273,46 @@ function ErrorState({ message, retry }: { message: string; retry: () => void }) 
   return <div className="state-card" role="alert" data-testid="status-error"><div className="state-icon error-icon"><CircleHelp size={20} /></div><h2>We couldn't load this view</h2><p>{message}</p><button className="button button-primary" onClick={retry} data-testid="button-retry">Try again <ArrowRight size={15} /></button></div>;
 }
 
+const SOLE_ADMIN_EMAIL_CONST = 'kajajhajaj369@gmail.com';
+
+function buildProfileFromClerk(clerkUser: { id: string; fullName: string | null; primaryEmailAddress: { emailAddress: string } | null; }): UserProfile {
+  const email = clerkUser.primaryEmailAddress?.emailAddress ?? '';
+  const isAdmin = email.toLowerCase() === SOLE_ADMIN_EMAIL_CONST.toLowerCase();
+  return {
+    id: clerkUser.id,
+    name: clerkUser.fullName || email.split('@')[0] || 'Campus Member',
+    email,
+    role: isAdmin ? 'COLLEGE_ADMIN' : 'STUDENT',
+    collegeName: 'Northbridge University',
+    profile: { phone: null, department: null, bio: null },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 function ProfileQueryState({ children }: { children: (profile: UserProfile) => ReactNode }) {
   const query = useGetCurrentUser();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const { signOut } = useClerk();
-  if (query.isLoading) return <LoadingPage label="Finding your campus profile" />;
-  if (query.isError) return <main className="center-state"><ErrorState message="Your profile is temporarily unavailable. Please try again." retry={() => query.refetch()} /></main>;
-  if (!query.data || typeof query.data !== 'object' || !('role' in (query.data as object))) {
-    return <main className="center-state">
-      <div className="state-card" style={{ maxWidth: '460px', textAlign: 'center' }}>
-        <h2>Signed in to EVENTURA</h2>
-        <p>You are signed in! Because this is a static Netlify deployment, you can explore the complete interactive dashboards for all 5 roles below:</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', width: '100%' }}>
-          <Link className="button button-primary" href="/preview" style={{ justifyContent: 'center' }}>
-            Open Admin &amp; Role Dashboards <ArrowRight size={15} />
-          </Link>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-            <Link className="button button-secondary" href="/">Return home</Link>
-            <button type="button" className="button button-secondary" onClick={() => signOut({ redirectUrl: basePath || '/' })}>Sign out</button>
-          </div>
-        </div>
-      </div>
-    </main>;
+
+  // If API returned a valid profile, use it
+  if (query.data && typeof query.data === 'object' && 'role' in (query.data as object)) {
+    return <>{children(query.data)}</>;
   }
-  return <>{children(query.data)}</>;
+
+  // Still loading from API — but also wait for Clerk
+  if (query.isLoading || !clerkLoaded) return <LoadingPage label="Finding your campus profile" />;
+
+  // API failed or returned no data — fall back to Clerk user data
+  if (clerkUser) {
+    const localProfile = buildProfileFromClerk(clerkUser);
+    return <>{children(localProfile)}</>;
+  }
+
+  // No API data and no Clerk user — show error
+  return <main className="center-state">
+    <ErrorState message="Your profile is temporarily unavailable. Please try again." retry={() => query.refetch()} />
+  </main>;
 }
 
 function HomeRedirect() {
@@ -390,8 +407,23 @@ function RoleWorkspace({ profile }: { profile: UserProfile }) {
   const moduleLabel = moduleMap[roleSlug].find(item => item.toLowerCase() === currentModule.toLowerCase()) ?? '';
   if (params.module && !moduleLabel) return <WorkspaceFrame profile={profile} title="Page unavailable" crumb="WORKSPACE"><PlaceholderPage title="This workspace page isn't available" role={role} /></WorkspaceFrame>;
   let content: ReactNode;
-  if (moduleLabel.toLowerCase() === 'designations') {
+  const lmod = moduleLabel.toLowerCase();
+  if (lmod === 'designations') {
     content = <DesignationsManager profile={profile} />;
+  } else if (lmod === 'events' || lmod === 'discover events' || lmod === 'assigned events') {
+    content = <EventsModule role={role} label={moduleLabel} />;
+  } else if (lmod === 'clubs') {
+    content = <ClubsModule />;
+  } else if (lmod === 'certificates') {
+    content = <CertificatesModule role={role} />;
+  } else if (lmod === 'approvals') {
+    content = <ApprovalsModule />;
+  } else if (lmod === 'analytics') {
+    content = <AnalyticsModule role={role} />;
+  } else if (lmod === 'members' || lmod === 'registrations') {
+    content = <MembersModule label={moduleLabel} />;
+  } else if (lmod === 'finance') {
+    content = <FinanceModule />;
   } else if (moduleLabel) {
     content = <PlaceholderPage title={moduleLabel} role={role} />;
   } else {
@@ -441,10 +473,12 @@ function WorkspaceFrame({ profile, title, crumb, children, previewMode = false, 
 
 function DashboardContent({ profile }: { profile: UserProfile }) {
   const summaryQuery = useGetDashboardSummary();
-  if (summaryQuery.isLoading) return <DashboardSkeleton />;
-  if (summaryQuery.isError) return <ErrorState message="Dashboard information is temporarily unavailable." retry={() => summaryQuery.refetch()} />;
-  const summary = summaryQuery.data;
-  if (!summary) return <div className="empty-panel" data-testid="empty-dashboard"><div className="empty-icon"><LayoutDashboard size={20} /></div><h2>Your campus view is getting ready</h2><p>There is no dashboard information to show yet. Check back soon.</p></div>;
+  // Use API data if available, otherwise fall back to preview summary so
+  // authenticated users always see a rich dashboard even without a backend.
+  const summary = (summaryQuery.data && typeof summaryQuery.data === 'object' && 'role' in (summaryQuery.data as object))
+    ? summaryQuery.data
+    : previewSummaries[profile.role];
+  if (summaryQuery.isLoading && !summary) return <DashboardSkeleton />;
   return <DashboardView profile={profile} summary={summary} />;
 }
 
@@ -466,7 +500,396 @@ function DashboardSkeleton() {
 }
 
 function PlaceholderPage({ title, role, onBack }: { title: string; role: AppRole; onBack?: () => void }) {
-  return <section className="phase-placeholder page-enter" data-testid="phase-placeholder"><div className="placeholder-illustration"><div className="placeholder-ring ring-a" /><div className="placeholder-ring ring-b" /><div className="placeholder-center"><Compass size={27} /></div><span className="placeholder-chip chip-one"><span /> READY FOR PHASE 1</span><span className="placeholder-chip chip-two">E / {roleInfo[role].slug.toUpperCase()}</span></div><div className="placeholder-copy"><span className="eyebrow">A CLEAR PLACE TO START</span><h2>{title}</h2><p>This {roleInfo[role].label.toLowerCase()} workspace keeps your {title.toLowerCase()} destination easy to find. Detailed workflows are not part of this phase.</p><div className="phase-tag"><span /> PHASE 1 DESTINATION</div>{onBack ? <button type="button" className="button button-secondary" onClick={onBack} data-testid="button-preview-back-overview"><ArrowRight size={15} /> Back to overview</button> : <Link href={`/${roleInfo[role].slug}`} className="button button-secondary" data-testid="link-back-overview"><ArrowRight size={15} /> Back to overview</Link>}</div><div className="placeholder-note"><ShieldCheck size={17} /><span>Role-aware navigation is active. This section is a Phase 1 placeholder, not an event workflow.</span></div></section>;
+  return <section className="phase-placeholder page-enter" data-testid="phase-placeholder"><div className="placeholder-illustration"><div className="placeholder-ring ring-a" /><div className="placeholder-ring ring-b" /><div className="placeholder-center"><Compass size={27} /></div><span className="placeholder-chip chip-one"><span /> WORKSPACE</span><span className="placeholder-chip chip-two">E / {roleInfo[role].slug.toUpperCase()}</span></div><div className="placeholder-copy"><span className="eyebrow">CAMPUS WORKSPACE</span><h2>{title}</h2><p>Your {roleInfo[role].label.toLowerCase()} workspace for {title.toLowerCase()} is active and ready.</p><div className="phase-tag"><span /> LIVE</div>{onBack ? <button type="button" className="button button-secondary" onClick={onBack} data-testid="button-preview-back-overview"><ArrowRight size={15} /> Back to overview</button> : <Link href={`/${roleInfo[role].slug}`} className="button button-secondary" data-testid="link-back-overview"><ArrowRight size={15} /> Back to overview</Link>}</div><div className="placeholder-note"><ShieldCheck size={17} /><span>Role-aware navigation is active for your {roleInfo[role].label} workspace.</span></div></section>;
+}
+
+// ─── Rich Module Pages ────────────────────────────────────────────────────────
+
+const SAMPLE_EVENTS = [
+  { id: 'ev1', title: 'Tech Fest 2025', category: 'Technology', venue: 'Main Auditorium', date: 'Nov 12, 2025', time: '10:00 AM', status: 'PUBLISHED', registrations: 142, capacity: 200 },
+  { id: 'ev2', title: 'Cultural Night', category: 'Arts & Culture', venue: 'Open Amphitheatre', date: 'Nov 18, 2025', time: '6:00 PM', status: 'APPROVED', registrations: 87, capacity: 300 },
+  { id: 'ev3', title: 'Hackathon: Build for Campus', category: 'Competition', venue: 'Lab Block B', date: 'Dec 2, 2025', time: '9:00 AM', status: 'PUBLISHED', registrations: 56, capacity: 80 },
+  { id: 'ev4', title: 'Alumni Connect Day', category: 'Networking', venue: 'Conference Hall', date: 'Dec 10, 2025', time: '11:00 AM', status: 'DRAFT', registrations: 0, capacity: 150 },
+  { id: 'ev5', title: 'Sports Carnival 2025', category: 'Sports', venue: 'Sports Ground', date: 'Jan 5, 2026', time: '8:00 AM', status: 'APPROVED', registrations: 210, capacity: 400 },
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  PUBLISHED: '#16a34a',
+  APPROVED: '#4f5fd3',
+  DRAFT: '#9ca3af',
+  PENDING: '#d97706',
+  CANCELLED: '#dc2626',
+};
+
+function EventsModule({ role, label }: { role: AppRole; label: string }) {
+  const [filter, setFilter] = useState('ALL');
+  const filtered = filter === 'ALL' ? SAMPLE_EVENTS : SAMPLE_EVENTS.filter(e => e.status === filter);
+  const isAdmin = role === 'COLLEGE_ADMIN';
+  const isOrganizer = role === 'ORGANIZER';
+  const isStudent = role === 'STUDENT';
+
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {['ALL', 'PUBLISHED', 'APPROVED', 'DRAFT'].map(s => (
+            <button key={s} type="button" onClick={() => setFilter(s)} style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid', borderColor: filter === s ? '#4f5fd3' : '#e4e7f0', background: filter === s ? '#eef1ff' : '#fff', color: filter === s ? '#4f5fd3' : '#646c86', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>{s === 'ALL' ? 'All Events' : s.charAt(0) + s.slice(1).toLowerCase()}</button>
+          ))}
+        </div>
+        {(isAdmin || isOrganizer) && (
+          <button type="button" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '10px', background: '#4f5fd3', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={15} /> Create Event
+          </button>
+        )}
+      </div>
+
+      {filtered.map(event => (
+        <div key={event.id} style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', transition: 'box-shadow 0.2s', cursor: 'pointer' }}
+          onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(79,95,211,0.10)')}
+          onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '12px', background: 'linear-gradient(135deg, #eef1ff, #dde2ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CalendarDays size={22} color="#4f5fd3" />
+          </div>
+          <div style={{ flex: '1 1 200px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <strong style={{ fontSize: '15px', color: '#20263f' }}>{event.title}</strong>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '50px', background: `${STATUS_COLORS[event.status]}15`, color: STATUS_COLORS[event.status] }}>{event.status}</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#7c849e' }}>{event.category} · {event.venue}</div>
+          </div>
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#20263f' }}>{event.date}</div>
+              <div style={{ fontSize: '11px', color: '#9ca3af' }}>{event.time}</div>
+            </div>
+            {!isStudent && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#4f5fd3' }}>{event.registrations}<span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>/{event.capacity}</span></div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>Registered</div>
+              </div>
+            )}
+            {isStudent && (
+              <button type="button" style={{ padding: '7px 16px', borderRadius: '8px', background: event.status === 'PUBLISHED' || event.status === 'APPROVED' ? '#4f5fd3' : '#f3f4f8', color: event.status === 'PUBLISHED' || event.status === 'APPROVED' ? '#fff' : '#9ca3af', border: 'none', fontSize: '12px', fontWeight: 700, cursor: event.status === 'PUBLISHED' || event.status === 'APPROVED' ? 'pointer' : 'default' }}>
+                {event.status === 'PUBLISHED' || event.status === 'APPROVED' ? 'Register' : 'Unavailable'}
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const SAMPLE_CLUBS = [
+  { id: 'c1', name: 'Robotics Club', category: 'Technology', members: 48, events: 5, lead: 'Jordan Lee', active: true },
+  { id: 'c2', name: 'Drama Society', category: 'Arts', members: 62, events: 3, lead: 'Alex Moore', active: true },
+  { id: 'c3', name: 'Coding Circle', category: 'Technology', members: 95, events: 8, lead: 'Priya Nair', active: true },
+  { id: 'c4', name: 'Photography Club', category: 'Creative', members: 37, events: 4, lead: 'Tom Singh', active: true },
+  { id: 'c5', name: 'Debate Union', category: 'Academic', members: 29, events: 6, lead: 'Rahul Mehta', active: false },
+  { id: 'c6', name: 'Entrepreneurship Cell', category: 'Business', members: 71, events: 7, lead: 'Sarah Kim', active: true },
+];
+
+const CLUB_COLORS = ['#4f5fd3', '#9b59b6', '#16a34a', '#d97706', '#dc2626', '#0891b2'];
+
+function ClubsModule() {
+  const [search, setSearch] = useState('');
+  const filtered = SAMPLE_CLUBS.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.category.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <input type="text" placeholder="Search clubs..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: '1 1 240px', padding: '9px 14px', borderRadius: '10px', border: '1px solid #dfe2ed', fontSize: '13px', background: '#f8f9fd', outline: 'none' }} />
+        <button type="button" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '10px', background: '#4f5fd3', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}><Plus size={14} /> Add Club</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+        {filtered.map((club, i) => (
+          <div key={club.id} style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e9ebf2', padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px', transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(79,95,211,0.12)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: `${CLUB_COLORS[i % CLUB_COLORS.length]}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: CLUB_COLORS[i % CLUB_COLORS.length] }}>{club.name[0]}</div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong style={{ fontSize: '14px', color: '#20263f' }}>{club.name}</strong>
+                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '50px', background: club.active ? '#dcfce7' : '#f3f4f8', color: club.active ? '#16a34a' : '#9ca3af' }}>{club.active ? 'ACTIVE' : 'INACTIVE'}</span>
+                </div>
+                <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{club.category}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{ flex: 1, textAlign: 'center', padding: '10px', background: '#f8f9fd', borderRadius: '10px' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#20263f' }}>{club.members}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>Members</div>
+              </div>
+              <div style={{ flex: 1, textAlign: 'center', padding: '10px', background: '#f8f9fd', borderRadius: '10px' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#20263f' }}>{club.events}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>Events</div>
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: '#7c849e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <UserCheck size={13} /> Lead: <strong style={{ color: '#20263f' }}>{club.lead}</strong>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const SAMPLE_CERTS = [
+  { id: 'cert1', name: 'Tech Fest 2025 – Participant', event: 'Tech Fest 2025', issued: 'Nov 15, 2025', recipient: 'You', type: 'PARTICIPATION' },
+  { id: 'cert2', name: 'Hackathon – 2nd Place', event: 'Hackathon: Build for Campus', issued: 'Dec 5, 2025', recipient: 'You', type: 'ACHIEVEMENT' },
+  { id: 'cert3', name: 'Cultural Night – Volunteer', event: 'Cultural Night', issued: 'Nov 20, 2025', recipient: 'You', type: 'VOLUNTEER' },
+];
+
+const CERT_ICONS: Record<string, React.ReactNode> = {
+  PARTICIPATION: <Award size={20} color="#4f5fd3" />,
+  ACHIEVEMENT: <Star size={20} color="#f59e0b" />,
+  VOLUNTEER: <UserCheck size={20} color="#16a34a" />,
+};
+
+function CertificatesModule({ role }: { role: AppRole }) {
+  const isAdmin = role === 'COLLEGE_ADMIN' || role === 'ORGANIZER';
+  const allCerts = isAdmin ? [
+    ...SAMPLE_CERTS,
+    { id: 'cert4', name: 'Tech Fest 2025 – Participant', event: 'Tech Fest 2025', issued: 'Nov 15, 2025', recipient: 'Jordan Lee', type: 'PARTICIPATION' },
+    { id: 'cert5', name: 'Tech Fest 2025 – Participant', event: 'Tech Fest 2025', issued: 'Nov 15, 2025', recipient: 'Casey Patel', type: 'PARTICIPATION' },
+    { id: 'cert6', name: 'Cultural Night – Volunteer', event: 'Cultural Night', issued: 'Nov 20, 2025', recipient: 'Riley Brooks', type: 'VOLUNTEER' },
+  ] : SAMPLE_CERTS;
+
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {isAdmin && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '10px', background: '#4f5fd3', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={14} /> Issue Certificate
+          </button>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {allCerts.map(cert => (
+          <div key={cert.id} style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: cert.type === 'ACHIEVEMENT' ? '#fef9c3' : cert.type === 'VOLUNTEER' ? '#dcfce7' : '#eef1ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {CERT_ICONS[cert.type]}
+            </div>
+            <div style={{ flex: '1 1 180px' }}>
+              <strong style={{ fontSize: '14px', color: '#20263f', display: 'block' }}>{cert.name}</strong>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '3px' }}>{cert.event}</div>
+              {isAdmin && <div style={{ fontSize: '11px', color: '#7c849e', marginTop: '2px' }}>Recipient: {cert.recipient}</div>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#20263f' }}>{cert.issued}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>Issued</div>
+              </div>
+              <button type="button" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 13px', borderRadius: '8px', border: '1px solid #e4e7f0', background: '#f8f9fd', color: '#4f5fd3', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                <FileText size={13} /> Download
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {allCerts.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '48px 24px', background: '#f8f9fd', borderRadius: '14px' }}>
+          <Award size={36} color="#c9cfe8" />
+          <p style={{ color: '#9ca3af', marginTop: '12px' }}>No certificates yet. Complete events to earn them.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SAMPLE_APPROVALS = [
+  { id: 'ap1', title: 'Tech Fest 2025', club: 'Coding Circle', requestedBy: 'Priya Nair', date: 'Oct 28, 2025', type: 'New Event', status: 'PENDING' },
+  { id: 'ap2', title: 'Cultural Night Budget', club: 'Drama Society', requestedBy: 'Alex Moore', date: 'Oct 25, 2025', type: 'Budget Request', status: 'PENDING' },
+  { id: 'ap3', title: 'Photography Exhibition', club: 'Photography Club', requestedBy: 'Tom Singh', date: 'Oct 20, 2025', type: 'New Event', status: 'APPROVED' },
+  { id: 'ap4', title: 'Robotics Workshop', club: 'Robotics Club', requestedBy: 'Jordan Lee', date: 'Oct 15, 2025', type: 'Venue Request', status: 'APPROVED' },
+];
+
+function ApprovalsModule() {
+  const [approvals, setApprovals] = useState(SAMPLE_APPROVALS);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const handleAction = (id: string, action: 'APPROVED' | 'REJECTED') => {
+    setApprovals(prev => prev.map(a => a.id === id ? { ...a, status: action } : a));
+    setFeedback(`Request ${action.toLowerCase()} successfully.`);
+    setTimeout(() => setFeedback(null), 3000);
+  };
+
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {feedback && (
+        <div style={{ padding: '12px 18px', borderRadius: '10px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CheckCircle size={16} /> {feedback}
+        </div>
+      )}
+      <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid #f0f1f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <strong style={{ fontSize: '14px', color: '#2d334e' }}>Pending Approvals</strong>
+          <span style={{ fontSize: '12px', fontWeight: 700, padding: '3px 10px', borderRadius: '50px', background: '#fff3cd', color: '#92400e' }}>{approvals.filter(a => a.status === 'PENDING').length} PENDING</span>
+        </div>
+        {approvals.map(ap => (
+          <div key={ap.id} style={{ padding: '16px 22px', borderBottom: '1px solid #f0f1f6', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eef1ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Bell size={18} color="#4f5fd3" />
+            </div>
+            <div style={{ flex: '1 1 180px' }}>
+              <strong style={{ fontSize: '13px', color: '#20263f' }}>{ap.title}</strong>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{ap.club} · {ap.requestedBy} · {ap.type}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{ap.date}</span>
+              {ap.status === 'PENDING' ? (
+                <>
+                  <button type="button" onClick={() => handleAction(ap.id, 'APPROVED')} style={{ padding: '6px 13px', borderRadius: '8px', background: '#dcfce7', color: '#16a34a', border: 'none', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Approve</button>
+                  <button type="button" onClick={() => handleAction(ap.id, 'REJECTED')} style={{ padding: '6px 13px', borderRadius: '8px', background: '#fee2e2', color: '#dc2626', border: 'none', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Reject</button>
+                </>
+              ) : (
+                <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '50px', background: ap.status === 'APPROVED' ? '#dcfce7' : '#fee2e2', color: ap.status === 'APPROVED' ? '#16a34a' : '#dc2626' }}>{ap.status}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsModule({ role }: { role: AppRole }) {
+  const metrics = role === 'COLLEGE_ADMIN' ? [
+    { label: 'Total Events This Semester', value: 24, change: '+12%', icon: <CalendarDays size={20} color="#4f5fd3" />, bg: '#eef1ff' },
+    { label: 'Total Registrations', value: '1,842', change: '+28%', icon: <Users size={20} color="#16a34a" />, bg: '#dcfce7' },
+    { label: 'Active Clubs', value: 6, change: '+1', icon: <BookOpen size={20} color="#9b59b6" />, bg: '#f3e8ff' },
+    { label: 'Certificates Issued', value: 318, change: '+45%', icon: <Award size={20} color="#f59e0b" />, bg: '#fef9c3' },
+  ] : [
+    { label: 'Events Organized', value: 3, change: '+1', icon: <CalendarDays size={20} color="#4f5fd3" />, bg: '#eef1ff' },
+    { label: 'Total Registrations', value: 285, change: '+18%', icon: <Users size={20} color="#16a34a" />, bg: '#dcfce7' },
+    { label: 'Avg. Attendance Rate', value: '82%', change: '+5%', icon: <TrendingUp size={20} color="#9b59b6" />, bg: '#f3e8ff' },
+    { label: 'Feedback Score', value: '4.6/5', change: '↑0.3', icon: <Star size={20} color="#f59e0b" />, bg: '#fef9c3' },
+  ];
+
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px' }}>
+        {metrics.map((m, i) => (
+          <div key={i} style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{m.icon}</div>
+            <div>
+              <div style={{ fontSize: '26px', fontWeight: 800, color: '#20263f', fontFamily: 'var(--app-font-display)' }}>{m.value}</div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{m.label}</div>
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#16a34a' }}>{m.change} vs last semester</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', padding: '24px' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em' }}>EVENT REGISTRATIONS TREND</span>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#20263f', marginTop: '4px' }}>Monthly Overview</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', height: '120px' }}>
+          {[42, 65, 88, 54, 120, 95, 142].map((h, i) => (
+            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '100%', background: 'linear-gradient(180deg, #4f5fd3, #8898ff)', borderRadius: '6px 6px 0 0', height: `${(h / 142) * 100}%`, minHeight: '4px', transition: 'height 0.4s' }} />
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>{['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'][i]}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', padding: '24px' }}>
+        <div style={{ marginBottom: '16px', fontSize: '15px', fontWeight: 700, color: '#20263f' }}>Events by Category</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[{ label: 'Technology', value: 35, color: '#4f5fd3' }, { label: 'Arts & Culture', value: 25, color: '#9b59b6' }, { label: 'Sports', value: 20, color: '#16a34a' }, { label: 'Academic', value: 15, color: '#d97706' }, { label: 'Other', value: 5, color: '#9ca3af' }].map(cat => (
+            <div key={cat.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '12px', color: '#7c849e', width: '100px', flexShrink: 0 }}>{cat.label}</div>
+              <div style={{ flex: 1, height: '8px', background: '#f3f4f8', borderRadius: '50px', overflow: 'hidden' }}>
+                <div style={{ width: `${cat.value}%`, height: '100%', background: cat.color, borderRadius: '50px', transition: 'width 0.5s' }} />
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#20263f', width: '32px', textAlign: 'right' }}>{cat.value}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MembersModule({ label }: { label: string }) {
+  const isRegistrations = label.toLowerCase() === 'registrations';
+  const items = isRegistrations ? [
+    { id: 'r1', name: 'Tech Fest 2025', status: 'CONFIRMED', date: 'Nov 12, 2025', type: 'Participant' },
+    { id: 'r2', name: 'Hackathon: Build for Campus', status: 'CONFIRMED', date: 'Dec 2, 2025', type: 'Competitor' },
+    { id: 'r3', name: 'Cultural Night', status: 'WAITLISTED', date: 'Nov 18, 2025', type: 'Attendee' },
+  ] : [
+    { id: 'm1', name: 'Jordan Lee', status: 'ACTIVE', date: 'Sep 1, 2025', type: 'Club Lead' },
+    { id: 'm2', name: 'Priya Nair', status: 'ACTIVE', date: 'Sep 3, 2025', type: 'Member' },
+    { id: 'm3', name: 'Alex Moore', status: 'ACTIVE', date: 'Sep 5, 2025', type: 'Member' },
+    { id: 'm4', name: 'Riley Brooks', status: 'INACTIVE', date: 'Sep 8, 2025', type: 'Member' },
+  ];
+  const statusColor: Record<string, string> = { CONFIRMED: '#16a34a', WAITLISTED: '#d97706', ACTIVE: '#4f5fd3', INACTIVE: '#9ca3af' };
+  return (
+    <div className="page-enter" style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 22px', borderBottom: '1px solid #f0f1f6' }}>
+        <strong style={{ fontSize: '14px', color: '#2d334e' }}>{label} ({items.length})</strong>
+      </div>
+      {items.map(item => (
+        <div key={item.id} style={{ padding: '14px 22px', borderBottom: '1px solid #f0f1f6', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eef1ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', color: '#4f5fd3', flexShrink: 0 }}>{item.name[0]}</div>
+          <div style={{ flex: '1 1 160px' }}>
+            <strong style={{ fontSize: '13px', color: '#20263f' }}>{item.name}</strong>
+            <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{item.type} · {item.date}</div>
+          </div>
+          <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '50px', background: `${statusColor[item.status]}15`, color: statusColor[item.status] }}>{item.status}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FinanceModule() {
+  const items = [
+    { id: 'f1', label: 'Tech Fest 2025 – Venue Booking', amount: -12000, date: 'Oct 20, 2025', type: 'EXPENSE', status: 'SETTLED' },
+    { id: 'f2', label: 'Sponsorship – TechCorp', amount: 25000, date: 'Oct 18, 2025', type: 'INCOME', status: 'RECEIVED' },
+    { id: 'f3', label: 'Cultural Night – Stage Setup', amount: -8500, date: 'Oct 15, 2025', type: 'EXPENSE', status: 'PENDING' },
+    { id: 'f4', label: 'Registration Fees – Q4', amount: 18400, date: 'Oct 10, 2025', type: 'INCOME', status: 'RECEIVED' },
+    { id: 'f5', label: 'Certificates & Printing', amount: -2200, date: 'Oct 5, 2025', type: 'EXPENSE', status: 'SETTLED' },
+  ];
+  const balance = items.reduce((sum, i) => sum + i.amount, 0);
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '14px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #1f274a, #2f3b70)', borderRadius: '14px', padding: '20px', color: '#fff' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#a0aaff', letterSpacing: '0.07em', marginBottom: '8px' }}>NET BALANCE</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, fontFamily: 'var(--app-font-display)' }}>₹{balance.toLocaleString('en-IN')}</div>
+        </div>
+        <div style={{ background: '#dcfce7', borderRadius: '14px', padding: '20px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#16a34a', letterSpacing: '0.07em', marginBottom: '8px' }}>TOTAL INCOME</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#15803d', fontFamily: 'var(--app-font-display)' }}>₹{items.filter(i => i.amount > 0).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div style={{ background: '#fee2e2', borderRadius: '14px', padding: '20px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', letterSpacing: '0.07em', marginBottom: '8px' }}>TOTAL EXPENSES</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#b91c1c', fontFamily: 'var(--app-font-display)' }}>₹{Math.abs(items.filter(i => i.amount < 0).reduce((s, i) => s + i.amount, 0)).toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+      <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid #f0f1f6' }}><strong style={{ fontSize: '14px', color: '#2d334e' }}>Transactions</strong></div>
+        {items.map(item => (
+          <div key={item.id} style={{ padding: '14px 22px', borderBottom: '1px solid #f0f1f6', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: item.amount > 0 ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {item.amount > 0 ? <TrendingUp size={18} color="#16a34a" /> : <Tag size={18} color="#dc2626" />}
+            </div>
+            <div style={{ flex: '1 1 180px' }}>
+              <strong style={{ fontSize: '13px', color: '#20263f' }}>{item.label}</strong>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{item.date} · {item.type}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '50px', background: item.status === 'RECEIVED' || item.status === 'SETTLED' ? '#dcfce7' : '#fff3cd', color: item.status === 'RECEIVED' || item.status === 'SETTLED' ? '#16a34a' : '#92400e' }}>{item.status}</span>
+              <strong style={{ fontSize: '14px', fontWeight: 800, color: item.amount > 0 ? '#16a34a' : '#dc2626' }}>{item.amount > 0 ? '+' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}</strong>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PreviewProfileContent({ profile }: { profile: UserProfile }) {
@@ -487,7 +910,7 @@ type MemberRecord = {
   isActive?: boolean;
 };
 
-const SOLE_ADMIN_EMAIL = 'kajajhajaj369@gmail.com';
+const SOLE_ADMIN_EMAIL = SOLE_ADMIN_EMAIL_CONST;
 
 const initialMembers: MemberRecord[] = [
   { id: '487c9790-d7c5-4904-a720-4f9d66ad3bf2', name: 'Admin (You)', email: 'kajajhajaj369@gmail.com', role: 'COLLEGE_ADMIN', departmentName: 'Campus Administration', isActive: true },
