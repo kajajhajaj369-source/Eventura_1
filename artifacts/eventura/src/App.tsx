@@ -171,7 +171,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 function Home() {
   const { isLoaded, isSignedIn } = useAuth();
-  if (isLoaded && isSignedIn) return <Redirect to="/portal" />;
+  const { signOut } = useClerk();
   return <main className="landing page-enter">
     <header className="landing-nav">
       <Brand />
@@ -182,8 +182,17 @@ function Home() {
         <Link href="/preview" className="text-link" data-testid="link-nav-preview" style={{ color: '#4f5fd3', fontWeight: 600 }}>Explore Dashboards</Link>
       </nav>
       <div className="landing-actions">
-        <Link href="/sign-in" className="text-link" data-testid="link-sign-in">Sign in</Link>
-        <Link href="/sign-up" className="button button-primary" data-testid="link-get-started">Get started <ArrowRight size={16} /></Link>
+        {isSignedIn ? (
+          <>
+            <Link href="/preview" className="button button-primary" data-testid="link-nav-preview-dash">Open Dashboards <ArrowRight size={15} /></Link>
+            <button type="button" onClick={() => signOut({ redirectUrl: basePath || '/' })} className="text-link" data-testid="button-home-signout" style={{ cursor: 'pointer', background: 'none', border: 'none' }}>Sign out</button>
+          </>
+        ) : (
+          <>
+            <Link href="/sign-in" className="text-link" data-testid="link-sign-in">Sign in</Link>
+            <Link href="/sign-up" className="button button-primary" data-testid="link-get-started">Get started <ArrowRight size={16} /></Link>
+          </>
+        )}
       </div>
     </header>
     <section className="hero hero-grid">
@@ -192,8 +201,16 @@ function Home() {
         <h1>Make campus<br /><span>feel connected.</span></h1>
         <p>One place for the people who make college life happen. Plan together, keep the details in sync, and make room for the moments that matter.</p>
         <div className="hero-ctas">
-          <Link href="/sign-up" className="button button-primary button-large" data-testid="link-create-account">Bring your campus together <ArrowRight size={17} /></Link>
-          <Link href="/sign-in" className="hero-secondary" data-testid="link-returning-user">Already part of a campus? <span>Sign in</span></Link>
+          {isSignedIn ? (
+            <Link href="/preview" className="button button-primary button-large" data-testid="link-hero-open-dashboards">
+              Open Admin &amp; Role Dashboards <ArrowRight size={17} />
+            </Link>
+          ) : (
+            <>
+              <Link href="/sign-up" className="button button-primary button-large" data-testid="link-create-account">Bring your campus together <ArrowRight size={17} /></Link>
+              <Link href="/sign-in" className="hero-secondary" data-testid="link-returning-user">Already part of a campus? <span>Sign in</span></Link>
+            </>
+          )}
         </div>
         <Link href="/preview" className="role-preview-entry" data-testid="link-role-preview">Preview all 5 roles (Admin, Club, Student...) <ArrowRight size={14} /></Link>
         <div className="hero-proof"><div className="proof-icons"><span>A</span><span>C</span><span>S</span><span>+</span></div><span>For every team behind campus life</span></div>
@@ -258,23 +275,31 @@ function ErrorState({ message, retry }: { message: string; retry: () => void }) 
 
 function ProfileQueryState({ children }: { children: (profile: UserProfile) => ReactNode }) {
   const query = useGetCurrentUser();
+  const { signOut } = useClerk();
   if (query.isLoading) return <LoadingPage label="Finding your campus profile" />;
   if (query.isError) return <main className="center-state"><ErrorState message="Your profile is temporarily unavailable. Please try again." retry={() => query.refetch()} /></main>;
-  if (!query.data || typeof query.data !== 'object' || !('role' in (query.data as object))) return <main className="center-state"><div className="state-card"><h2>Profile not found</h2><p>We couldn't find an account profile for this session.</p><Link className="button button-primary" href="/">Return home</Link></div></main>;
+  if (!query.data || typeof query.data !== 'object' || !('role' in (query.data as object))) {
+    return <main className="center-state">
+      <div className="state-card" style={{ maxWidth: '460px', textAlign: 'center' }}>
+        <h2>Signed in to EVENTURA</h2>
+        <p>You are signed in! Because this is a static Netlify deployment, you can explore the complete interactive dashboards for all 5 roles below:</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', width: '100%' }}>
+          <Link className="button button-primary" href="/preview" style={{ justifyContent: 'center' }}>
+            Open Admin &amp; Role Dashboards <ArrowRight size={15} />
+          </Link>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+            <Link className="button button-secondary" href="/">Return home</Link>
+            <button type="button" className="button button-secondary" onClick={() => signOut({ redirectUrl: basePath || '/' })}>Sign out</button>
+          </div>
+        </div>
+      </div>
+    </main>;
+  }
   return <>{children(query.data)}</>;
 }
 
 function HomeRedirect() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const [timedOut, setTimedOut] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setTimedOut(true), 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!isLoaded && !timedOut) return <LoadingPage label="Opening EVENTURA" />;
-  return isSignedIn ? <Redirect to="/portal" /> : <Home />;
+  return <Home />;
 }
 
 function PortalPage() {
