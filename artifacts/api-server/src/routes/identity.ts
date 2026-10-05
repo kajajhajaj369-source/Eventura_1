@@ -5,10 +5,12 @@ import {
   UpdateMyProfileBody,
   UpdateMyProfileResponse,
 } from "@workspace/api-zod";
-import { db, userProfilesTable, type UserProfile } from "@workspace/db";
+import { db, userProfilesTable, type AppRole, type UserProfile } from "@workspace/db";
 import {
   loadProfileView,
   requireAuthenticatedProfile,
+  requireRoles,
+  SOLE_ADMIN_EMAIL,
   toUserProfileResponse,
 } from "../middlewares/authorization";
 
@@ -63,6 +65,93 @@ router.patch(
       return;
     }
     res.json(UpdateMyProfileResponse.parse(toUserProfileResponse(view)));
+  },
+);
+
+// Admin-only member designation management (only accessible by COLLEGE_ADMIN)
+router.get(
+  "/admin/members",
+  requireAuthenticatedProfile,
+  requireRoles("COLLEGE_ADMIN"),
+  async (_req, res): Promise<void> => {
+    const members = await db
+      .select({
+        id: userProfilesTable.id,
+        name: userProfilesTable.name,
+        email: userProfilesTable.email,
+        role: userProfilesTable.roleKey,
+        departmentName: userProfilesTable.departmentName,
+        phone: userProfilesTable.phone,
+        isActive: userProfilesTable.isActive,
+        createdAt: userProfilesTable.createdAt,
+      })
+      .from(userProfilesTable)
+      .orderBy(userProfilesTable.name);
+
+    res.json({
+      adminEmail: SOLE_ADMIN_EMAIL,
+      members,
+    });
+  },
+);
+
+router.patch(
+  "/admin/members/:id/role",
+  requireAuthenticatedProfile,
+  requireRoles("COLLEGE_ADMIN"),
+  async (req, res): Promise<void> => {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    const allowedRoles: AppRole[] = ["CLUB", "ORGANIZER", "STUDENT", "VOLUNTEER"];
+    if (!allowedRoles.includes(role)) {
+      res.status(400).json({
+        error: "Invalid designation. Allowed designations are CLUB, ORGANIZER, STUDENT, and VOLUNTEER. There is only one COLLEGE_ADMIN (kajajhajaj369@gmail.com).",
+      });
+      return;
+    }
+
+    const [targetUser] = await db
+      .select()
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.id, id))
+      .limit(1);
+
+    if (!targetUser) {
+      res.status(404).json({ error: "User profile not found." });
+      return;
+    }
+
+    if (targetUser.email.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase()) {
+      res.status(400).json({
+        error: "Cannot change the primary administrator designation.",
+      });
+      return;
+    }
+
+    await db
+      .update(userProfilesTable)
+      .set({ roleKey: role })
+      .where(eq(userProfilesTable.id, id));
+
+    const [updated] = await db
+      .select({
+        id: userProfilesTable.id,
+        name: userProfilesTable.name,
+        email: userProfilesTable.email,
+        role: userProfilesTable.roleKey,
+        departmentName: userProfilesTable.departmentName,
+        isActive: userProfilesTable.isActive,
+      })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.id, id))
+      .limit(1);
+
+    res.json({
+      success: true,
+      message: `Designation updated to ${role}`,
+      member: updated,
+    });
   },
 );
 

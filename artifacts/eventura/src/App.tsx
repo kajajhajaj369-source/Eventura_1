@@ -64,7 +64,7 @@ const roleInfo: Record<AppRole, { slug: string; label: string; description: stri
 };
 
 const moduleMap: Record<string, string[]> = {
-  admin: ['Events', 'Approvals', 'Clubs', 'Analytics', 'Finance', 'Certificates'],
+  admin: ['Events', 'Approvals', 'Clubs', 'Designations', 'Analytics', 'Finance', 'Certificates'],
   club: ['Events', 'Members', 'Organizers', 'Templates', 'Analytics'],
   organizer: ['Events', 'Registrations', 'Attendance', 'Volunteers', 'Tasks', 'Finance', 'Feedback', 'Certificates', 'Analytics'],
   student: ['Discover events', 'Registrations', 'QR passes', 'Attendance', 'Feedback', 'Certificates'],
@@ -74,7 +74,7 @@ const moduleMap: Record<string, string[]> = {
 const roleOrder: AppRole[] = ['COLLEGE_ADMIN', 'CLUB', 'ORGANIZER', 'STUDENT', 'VOLUNTEER'];
 
 const previewProfiles: Record<AppRole, UserProfile> = {
-  COLLEGE_ADMIN: { id: '00000000-0000-4000-8000-000000000001', name: 'Avery Morgan', email: 'avery.admin@preview.eventura.test', role: 'COLLEGE_ADMIN', collegeName: 'Northbridge University', profile: { phone: null, department: 'Campus Administration', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  COLLEGE_ADMIN: { id: '487c9790-d7c5-4904-a720-4f9d66ad3bf2', name: 'Admin (kajajhajaj369)', email: 'kajajhajaj369@gmail.com', role: 'COLLEGE_ADMIN', collegeName: 'Northbridge University', profile: { phone: null, department: 'Campus Administration', bio: 'Sole College Administrator with designation assignment authority.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
   CLUB: { id: '00000000-0000-4000-8000-000000000002', name: 'Sam Rivera', email: 'sam.club@preview.eventura.test', role: 'CLUB', collegeName: 'Northbridge University', profile: { phone: null, department: 'Student Organizations', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
   ORGANIZER: { id: '00000000-0000-4000-8000-000000000003', name: 'Jordan Kim', email: 'jordan.organizer@preview.eventura.test', role: 'ORGANIZER', collegeName: 'Northbridge University', profile: { phone: null, department: 'Campus Events', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
   STUDENT: { id: '00000000-0000-4000-8000-000000000004', name: 'Casey Patel', email: 'casey.student@preview.eventura.test', role: 'STUDENT', collegeName: 'Northbridge University', profile: { phone: null, department: 'Computer Science', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
@@ -389,8 +389,16 @@ function RoleWorkspace({ profile }: { profile: UserProfile }) {
   const currentModule = params.module ? decodeURIComponent(params.module).replace(/-/g, ' ') : '';
   const moduleLabel = moduleMap[roleSlug].find(item => item.toLowerCase() === currentModule.toLowerCase()) ?? '';
   if (params.module && !moduleLabel) return <WorkspaceFrame profile={profile} title="Page unavailable" crumb="WORKSPACE"><PlaceholderPage title="This workspace page isn't available" role={role} /></WorkspaceFrame>;
+  let content: ReactNode;
+  if (moduleLabel.toLowerCase() === 'designations') {
+    content = <DesignationsManager profile={profile} />;
+  } else if (moduleLabel) {
+    content = <PlaceholderPage title={moduleLabel} role={role} />;
+  } else {
+    content = <DashboardContent profile={profile} />;
+  }
   return <WorkspaceFrame profile={profile} title={moduleLabel || 'Overview'} crumb={roleInfo[role].label.toUpperCase()}>
-    {moduleLabel ? <PlaceholderPage title={moduleLabel} role={role} /> : <DashboardContent profile={profile} />}
+    {content}
   </WorkspaceFrame>;
 }
 
@@ -470,6 +478,245 @@ function PreviewProfileContent({ profile }: { profile: UserProfile }) {
   </div>;
 }
 
+type MemberRecord = {
+  id: string;
+  name: string;
+  email: string;
+  role: AppRole;
+  departmentName?: string | null;
+  isActive?: boolean;
+};
+
+const SOLE_ADMIN_EMAIL = 'kajajhajaj369@gmail.com';
+
+const initialMembers: MemberRecord[] = [
+  { id: '487c9790-d7c5-4904-a720-4f9d66ad3bf2', name: 'Admin (You)', email: 'kajajhajaj369@gmail.com', role: 'COLLEGE_ADMIN', departmentName: 'Campus Administration', isActive: true },
+  { id: '7e3d8365-e429-4961-bea9-554ce0764cde', name: 'Jordan Lee', email: 'club@demo.eventura.invalid', role: 'CLUB', departmentName: 'Student Organizations', isActive: true },
+  { id: '66febbd2-f590-4563-8d3f-5c36c8364b80', name: 'Jordan Lee (VIT)', email: 'vit.club@demo.eventura.invalid', role: 'CLUB', departmentName: 'Robotics Club', isActive: true },
+  { id: '5165a9e6-63fb-40af-a662-993993a2ae75', name: 'Sam Rivera', email: 'organizer@demo.eventura.invalid', role: 'ORGANIZER', departmentName: 'Campus Events', isActive: true },
+  { id: '8e2e54f8-777e-48c5-a36b-bfd4c4c011b8', name: 'Sam Rivera (VIT)', email: 'vit.organizer@demo.eventura.invalid', role: 'ORGANIZER', departmentName: 'Cultural Fest', isActive: true },
+  { id: '64f490bf-8575-488a-9b49-a70af84129e1', name: 'Taylor Morgan', email: 'student.one@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Computer Science', isActive: true },
+  { id: '23d67b58-6493-48e9-b6c4-a306bdce4831', name: 'Casey Patel', email: 'student.two@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Electrical Engineering', isActive: true },
+  { id: 'bfc0233f-ea27-4371-9d71-c429deeda311', name: 'Morgan Chen', email: 'student.three@demo.eventura.invalid', role: 'STUDENT', departmentName: 'Business School', isActive: true },
+  { id: 'a8f1829b-676c-43d3-973f-e1ea5687e118', name: 'Riley Brooks', email: 'volunteer.one@demo.eventura.invalid', role: 'VOLUNTEER', departmentName: 'Community Outreach', isActive: true },
+  { id: '596933aa-f52c-417f-98c0-557844cdc031', name: 'Jamie Okafor', email: 'volunteer.two@demo.eventura.invalid', role: 'VOLUNTEER', departmentName: 'Campus Security & Ushers', isActive: true },
+];
+
+function DesignationsManager({ profile, previewMode = false }: { profile: UserProfile; previewMode?: boolean }) {
+  const [members, setMembers] = useState<MemberRecord[]>(initialMembers);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | AppRole>('ALL');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!previewMode) {
+      fetch('/api/admin/members')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.members?.length) setMembers(data.members);
+        })
+        .catch(() => {});
+    }
+  }, [previewMode]);
+
+  const handleRoleChange = async (memberId: string, newRole: AppRole) => {
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    if (member.email.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase()) {
+      setFeedback('The primary administrator designation is locked to kajajhajaj369@gmail.com.');
+      return;
+    }
+
+    setUpdatingId(memberId);
+    try {
+      if (!previewMode) {
+        const res = await fetch(`/api/admin/members/${memberId}/role`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: newRole }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          setFeedback(err.error || 'Failed to update role.');
+          setUpdatingId(null);
+          return;
+        }
+      }
+      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
+      setFeedback(`Designation for ${member.name} successfully updated to ${roleInfo[newRole].label}!`);
+      setTimeout(() => setFeedback(null), 4000);
+    } catch {
+      setFeedback('Network error while updating designation.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const filtered = members.filter(m => {
+    const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase());
+    const matchRole = roleFilter === 'ALL' || m.role === roleFilter;
+    return matchSearch && matchRole;
+  });
+
+  return (
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <div style={{ background: 'linear-gradient(135deg, #1f274a 0%, #2f3b70 100%)', borderRadius: '16px', padding: '24px 28px', color: '#fff', boxShadow: '0 10px 30px rgba(31,39,74,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a0aaff', fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '8px' }}>
+          <ShieldCheck size={16} /> SOLE ADMINISTRATOR PRIVILEGE ENFORCED
+        </div>
+        <h2 style={{ fontSize: '23px', fontWeight: 800, margin: '0 0 8px 0', fontFamily: 'var(--app-font-display)' }}>
+          Designation Authority: <span style={{ color: '#8898ff' }}>{SOLE_ADMIN_EMAIL}</span>
+        </h2>
+        <p style={{ margin: 0, fontSize: '13px', color: '#cbd3ee', maxWidth: '750px', lineHeight: 1.6 }}>
+          Only <b>{SOLE_ADMIN_EMAIL}</b> holds College Administrator authority on EVENTURA. You can assign and modify designations for any person on campus below.
+        </p>
+      </div>
+
+      {feedback && (
+        <div style={{ padding: '12px 18px', borderRadius: '10px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Check size={16} /> {feedback}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '14px 18px', borderRadius: '12px', border: '1px solid #e9ebf2' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: '1 1 260px' }}>
+          <input
+            type="text"
+            placeholder="Search members by name or email…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', padding: '9px 14px', borderRadius: '8px', border: '1px solid #dfe2ed', fontSize: '13px', background: '#f8f9fd', outline: 'none' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', alignItems: 'center' }}>
+          {(['ALL', 'CLUB', 'ORGANIZER', 'STUDENT', 'VOLUNTEER'] as const).map(rf => (
+            <button
+              key={rf}
+              type="button"
+              onClick={() => setRoleFilter(rf)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid',
+                borderColor: roleFilter === rf ? '#4f5fd3' : '#e4e7f0',
+                background: roleFilter === rf ? '#eef1ff' : '#fff',
+                color: roleFilter === rf ? '#4f5fd3' : '#646c86',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {rf === 'ALL' ? 'All Roles' : roleInfo[rf].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e9ebf2', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid #f0f1f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <strong style={{ fontSize: '14px', color: '#2d334e' }}>Campus Members ({filtered.length})</strong>
+          <span style={{ fontSize: '11px', color: '#888fa6' }}>Select any role to reassign designation</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {filtered.map(member => {
+            const isSoleAdmin = member.email.toLowerCase() === SOLE_ADMIN_EMAIL.toLowerCase();
+            return (
+              <div
+                key={member.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 22px',
+                  borderBottom: '1px solid #f2f3f7',
+                  gap: '14px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '220px', flex: '1 1 240px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: isSoleAdmin ? '#eff0ff' : '#f3f4f8',
+                    color: isSoleAdmin ? '#4f5fd3' : '#575f79',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                  }}>
+                    {initials(member.name)}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <strong style={{ fontSize: '13px', color: '#20263f' }}>{member.name}</strong>
+                      {isSoleAdmin && (
+                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '50px', background: '#eef0ff', color: '#4f5fd3' }}>
+                          Sole Admin
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#7c849e', marginTop: '2px' }}>
+                      {member.email} {member.departmentName ? `· ${member.departmentName}` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {isSoleAdmin ? (
+                    <div style={{
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      background: '#eff2ff',
+                      color: '#4f5fd3',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}>
+                      <ShieldCheck size={14} /> College Admin (Primary)
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label style={{ fontSize: '11px', color: '#68708c', fontWeight: 600 }}>
+                        Designation:
+                      </label>
+                      <select
+                        value={member.role}
+                        disabled={updatingId === member.id}
+                        onChange={e => handleRoleChange(member.id, e.target.value as AppRole)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #d8dbe8',
+                          background: '#fff',
+                          color: '#2a314c',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="CLUB">Club Lead</option>
+                        <option value="ORGANIZER">Event Organizer</option>
+                        <option value="STUDENT">Student</option>
+                        <option value="VOLUNTEER">Volunteer</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RolePreviewPage() {
   const [role, setRole] = useState<AppRole>('COLLEGE_ADMIN');
   const [selectedView, setSelectedView] = useState('Overview');
@@ -480,6 +727,8 @@ function RolePreviewPage() {
     content = <DashboardView profile={profile} summary={previewSummaries[role]} />;
   } else if (selectedView === 'Your profile') {
     content = <PreviewProfileContent profile={profile} />;
+  } else if (selectedView === 'Designations') {
+    content = <DesignationsManager profile={profile} previewMode />;
   } else {
     content = <PlaceholderPage title={selectedView} role={role} onBack={() => setSelectedView('Overview')} />;
   }

@@ -65,21 +65,42 @@ export function toUserProfileResponse(view: UserProfileView) {
   };
 }
 
+export const SOLE_ADMIN_EMAIL = "kajajhajaj369@gmail.com";
+
 async function findOrProvisionProfile(authUserId: string): Promise<UserProfile> {
+  const identity = await clerkClient.users.getUser(authUserId);
+  const rawEmail =
+    identity.primaryEmailAddress?.emailAddress ??
+    identity.emailAddresses[0]?.emailAddress;
+
+  if (!rawEmail) {
+    throw new Error("The signed-in account does not have an email address.");
+  }
+
+  const email = rawEmail.toLowerCase();
+  const isSoleAdmin = email === SOLE_ADMIN_EMAIL.toLowerCase();
+
   const [existing] = await db
     .select()
     .from(userProfilesTable)
     .where(eq(userProfilesTable.authUserId, authUserId))
     .limit(1);
-  if (existing) return existing;
 
-  const identity = await clerkClient.users.getUser(authUserId);
-  const email =
-    identity.primaryEmailAddress?.emailAddress ??
-    identity.emailAddresses[0]?.emailAddress;
-
-  if (!email) {
-    throw new Error("The signed-in account does not have an email address.");
+  if (existing) {
+    if (isSoleAdmin && existing.roleKey !== "COLLEGE_ADMIN") {
+      await db
+        .update(userProfilesTable)
+        .set({ roleKey: "COLLEGE_ADMIN" })
+        .where(eq(userProfilesTable.id, existing.id));
+      existing.roleKey = "COLLEGE_ADMIN";
+    } else if (!isSoleAdmin && existing.roleKey === "COLLEGE_ADMIN") {
+      await db
+        .update(userProfilesTable)
+        .set({ roleKey: "STUDENT" })
+        .where(eq(userProfilesTable.id, existing.id));
+      existing.roleKey = "STUDENT";
+    }
+    return existing;
   }
 
   const name =
@@ -93,8 +114,8 @@ async function findOrProvisionProfile(authUserId: string): Promise<UserProfile> 
     .values({
       authUserId,
       name,
-      email: email.toLowerCase(),
-      roleKey: "STUDENT",
+      email,
+      roleKey: isSoleAdmin ? "COLLEGE_ADMIN" : "STUDENT",
     })
     .onConflictDoNothing();
 
