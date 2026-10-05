@@ -3,11 +3,12 @@ import './role-preview.css';
 import React, { useEffect, type FormEvent, type ReactNode, useState } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth, useClerk, useUser } from '@clerk/react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, ArrowUpRight, Award, BarChart2, Bell, BookOpen, CalendarDays, Check, CheckCircle, ChevronRight, CircleHelp, Clock3, Command, Compass, FileText, GraduationCap, LayoutDashboard, LogOut, Menu, Plus, ShieldCheck, Sparkles, Star, Tag, TrendingUp, Users, UserCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, ArrowUpRight, Award, BarChart2, Bell, BookOpen, CalendarDays, Check, CheckCircle, ChevronRight, CircleHelp, Clock3, Command, Compass, FileText, Folder, GraduationCap, LayoutDashboard, LogOut, Menu, Plus, ShieldCheck, Sparkles, Star, Tag, TrendingUp, Users, UserCheck, X } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { useGetCurrentUser, useGetDashboardSummary, useUpdateMyProfile, getGetCurrentUserQueryKey, setAuthTokenGetter } from '@workspace/api-client-react';
 import type { AppRole, DashboardSummary, ProfileUpdate, UserProfile } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { FileManagerModule } from '@/components/FileManagerModule';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -64,9 +65,9 @@ const roleInfo: Record<AppRole, { slug: string; label: string; description: stri
 };
 
 const moduleMap: Record<string, string[]> = {
-  admin: ['Events', 'Approvals', 'Clubs', 'Designations', 'Analytics', 'Finance', 'Certificates'],
-  club: ['Events', 'Members', 'Organizers', 'Templates', 'Analytics'],
-  organizer: ['Events', 'Registrations', 'Attendance', 'Volunteers', 'Tasks', 'Finance', 'Feedback', 'Certificates', 'Analytics'],
+  admin: ['Events', 'Approvals', 'Clubs', 'Designations', 'Files', 'Analytics', 'Finance', 'Certificates'],
+  club: ['Events', 'Members', 'Organizers', 'Files', 'Templates', 'Analytics'],
+  organizer: ['Events', 'Registrations', 'Attendance', 'Volunteers', 'Tasks', 'Files', 'Finance', 'Feedback', 'Certificates', 'Analytics'],
   student: ['Discover events', 'Registrations', 'QR passes', 'Attendance', 'Feedback', 'Certificates'],
   volunteer: ['Assigned events', 'Tasks', 'Duty schedule', 'Attendance'],
 };
@@ -565,6 +566,8 @@ function RoleWorkspace({ profile }: { profile: UserProfile }) {
     content = <EventsModule role={role} label={moduleLabel} />;
   } else if (lmod === 'clubs') {
     content = <ClubsModule />;
+  } else if (lmod === 'files') {
+    content = <FileManagerModule role={role} />;
   } else if (lmod === 'certificates') {
     content = <CertificatesModule role={role} />;
   } else if (lmod === 'approvals') {
@@ -585,13 +588,36 @@ function RoleWorkspace({ profile }: { profile: UserProfile }) {
   </WorkspaceFrame>;
 }
 
+function getModuleIcon(label: string) {
+  const l = label.toLowerCase();
+  if (l === 'overview') return LayoutDashboard;
+  if (l.includes('event')) return CalendarDays;
+  if (l === 'files') return Folder;
+  if (l === 'clubs') return Users;
+  if (l === 'designations') return ShieldCheck;
+  if (l === 'approvals') return CheckCircle;
+  if (l === 'analytics') return BarChart2;
+  if (l === 'finance') return TrendingUp;
+  if (l === 'certificates') return Award;
+  if (l === 'members' || l === 'organizers' || l === 'volunteers') return Users;
+  return Compass;
+}
+
 function WorkspaceFrame({ profile, title, crumb, children, previewMode = false, onPreviewNavigate }: { profile: UserProfile; title: string; crumb: string; children: ReactNode; previewMode?: boolean; onPreviewNavigate?: (view: string) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
   const roleSlug = roleInfo[profile.role].slug;
   const { signOut } = useClerk();
   const signOutUser = () => signOut({ redirectUrl: basePath || '/' });
-  const navItems = [{ label: 'Overview', href: `/${roleSlug}`, icon: LayoutDashboard }, ...moduleMap[roleSlug].map((label, index) => ({ label, href: `/${roleSlug}/${slugify(label)}`, icon: index === 0 ? CalendarDays : index === 1 ? Users : Compass })), { label: 'My profile', href: '/profile', icon: Users }];
+  const navItems = [
+    { label: 'Overview', href: `/${roleSlug}`, icon: LayoutDashboard },
+    ...moduleMap[roleSlug].map((label) => ({
+      label,
+      href: `/${roleSlug}/${slugify(label)}`,
+      icon: getModuleIcon(label),
+    })),
+    { label: 'My profile', href: '/profile', icon: Users },
+  ];
   const initialsText = initials(profile.name);
   return <div className="workspace app-frame">
     <aside className={`workspace-sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
@@ -1336,6 +1362,8 @@ function RolePreviewPage() {
     content = <PreviewProfileContent profile={profile} />;
   } else if (selectedView === 'Designations') {
     content = <DesignationsManager profile={profile} previewMode />;
+  } else if (selectedView === 'Files') {
+    content = <FileManagerModule role={role} />;
   } else {
     content = <PlaceholderPage title={selectedView} role={role} onBack={() => setSelectedView('Overview')} />;
   }
