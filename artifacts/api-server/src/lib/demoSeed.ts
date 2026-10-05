@@ -25,8 +25,12 @@ import {
   type UserProfile,
 } from "@workspace/db";
 
-async function getDemoCollege(): Promise<College> {
-  const slug = "demo-campus";
+async function getDemoCollege(input: {
+  slug: string;
+  name: string;
+  shortName: string;
+}): Promise<College> {
+  const { slug, name, shortName } = input;
   const [existing] = await db
     .select()
     .from(collegesTable)
@@ -38,8 +42,8 @@ async function getDemoCollege(): Promise<College> {
     .insert(collegesTable)
     .values({
       slug,
-      name: "Northstar University",
-      shortName: "Northstar",
+      name,
+      shortName,
       timezone: "Asia/Kolkata",
     })
     .onConflictDoNothing()
@@ -51,7 +55,7 @@ async function getDemoCollege(): Promise<College> {
     .from(collegesTable)
     .where(eq(collegesTable.slug, slug))
     .limit(1);
-  if (!retried) throw new Error("Could not create the EVENTURA demo campus.");
+  if (!retried) throw new Error(`Could not create demo campus ${name}.`);
   return retried;
 }
 
@@ -135,10 +139,15 @@ async function getDemoProfile(input: {
 }
 
 async function getDemoClub(
-  collegeId: string,
-  departmentId: string,
+  input: {
+    collegeId: string;
+    departmentId: string;
+    slug: string;
+    name: string;
+    description: string;
+  },
 ): Promise<Club> {
-  const slug = "campus-makers";
+  const { collegeId, departmentId, slug, name, description } = input;
   const [existing] = await db
     .select()
     .from(clubsTable)
@@ -151,9 +160,9 @@ async function getDemoClub(
     .values({
       collegeId,
       departmentId,
-      name: "Campus Makers",
+      name,
       slug,
-      description: "A student club for design, technology, and campus projects.",
+      description,
     })
     .onConflictDoNothing()
     .returning();
@@ -164,7 +173,7 @@ async function getDemoClub(
     .from(clubsTable)
     .where(and(eq(clubsTable.collegeId, collegeId), eq(clubsTable.slug, slug)))
     .limit(1);
-  if (!retried) throw new Error("Could not create the demo club.");
+  if (!retried) throw new Error(`Could not create demo club ${name}.`);
   return retried;
 }
 
@@ -347,8 +356,73 @@ async function ensureVolunteerAssignment(input: {
     .onConflictDoNothing();
 }
 
-export async function seedDemoData(): Promise<void> {
-  const college = await getDemoCollege();
+type DemoCampusConfig = {
+  slug: string;
+  name: string;
+  shortName: string;
+  profilePrefix: string;
+  club: {
+    name: string;
+    slug: string;
+    description: string;
+  };
+  eventOne: {
+    title: string;
+    venue: string;
+  };
+  eventTwo: {
+    title: string;
+    venue: string;
+  };
+};
+
+const DEMO_CAMPUSES: DemoCampusConfig[] = [
+  {
+    slug: "demo-campus",
+    name: "Northstar University",
+    shortName: "Northstar",
+    profilePrefix: "",
+    club: {
+      name: "Campus Makers",
+      slug: "campus-makers",
+      description:
+        "A student club for design, technology, and campus projects.",
+    },
+    eventOne: {
+      title: "Campus Creative Week",
+      venue: "Northstar Student Union",
+    },
+    eventTwo: {
+      title: "Research & Innovation Forum",
+      venue: "Innovation Hall",
+    },
+  },
+  {
+    slug: "vit-pune",
+    name: "VIT Pune",
+    shortName: "VIT",
+    profilePrefix: "vit_",
+    club: {
+      name: "VIT Robotics & Innovation Club",
+      slug: "robotics-innovation",
+      description:
+        "A student community for robotics, engineering, and applied innovation.",
+    },
+    eventOne: {
+      title: "VIT Pune Tech & Culture Fest",
+      venue: "VIT Pune Main Quad",
+    },
+    eventTwo: {
+      title: "VIT Innovation and Research Showcase",
+      venue: "VIT Pune Innovation Hall",
+    },
+  },
+];
+
+async function seedDemoCampus(
+  campusConfig: DemoCampusConfig,
+): Promise<void> {
+  const college = await getDemoCollege(campusConfig);
   const department = await getDepartment(
     college.id,
     "Design & Technology",
@@ -363,56 +437,56 @@ export async function seedDemoData(): Promise<void> {
   const [admin, clubLead, organizer, student1, student2, student3, volunteer1, volunteer2] =
     await Promise.all([
       getDemoProfile({
-        key: "college_admin",
+        key: `${campusConfig.profilePrefix}college_admin`,
         name: "Avery Campus",
         roleKey: "COLLEGE_ADMIN",
         collegeId: college.id,
         departmentId: administration.id,
       }),
       getDemoProfile({
-        key: "club",
+        key: `${campusConfig.profilePrefix}club`,
         name: "Jordan Lee",
         roleKey: "CLUB",
         collegeId: college.id,
         departmentId: department.id,
       }),
       getDemoProfile({
-        key: "organizer",
+        key: `${campusConfig.profilePrefix}organizer`,
         name: "Sam Rivera",
         roleKey: "ORGANIZER",
         collegeId: college.id,
         departmentId: department.id,
       }),
       getDemoProfile({
-        key: "student_one",
+        key: `${campusConfig.profilePrefix}student_one`,
         name: "Taylor Morgan",
         roleKey: "STUDENT",
         collegeId: college.id,
         departmentId: department.id,
       }),
       getDemoProfile({
-        key: "student_two",
+        key: `${campusConfig.profilePrefix}student_two`,
         name: "Casey Patel",
         roleKey: "STUDENT",
         collegeId: college.id,
         departmentId: department.id,
       }),
       getDemoProfile({
-        key: "student_three",
+        key: `${campusConfig.profilePrefix}student_three`,
         name: "Morgan Chen",
         roleKey: "STUDENT",
         collegeId: college.id,
         departmentId: administration.id,
       }),
       getDemoProfile({
-        key: "volunteer_one",
+        key: `${campusConfig.profilePrefix}volunteer_one`,
         name: "Riley Brooks",
         roleKey: "VOLUNTEER",
         collegeId: college.id,
         departmentId: department.id,
       }),
       getDemoProfile({
-        key: "volunteer_two",
+        key: `${campusConfig.profilePrefix}volunteer_two`,
         name: "Jamie Okafor",
         roleKey: "VOLUNTEER",
         collegeId: college.id,
@@ -420,7 +494,11 @@ export async function seedDemoData(): Promise<void> {
       }),
     ]);
 
-  const club = await getDemoClub(college.id, department.id);
+  const club = await getDemoClub({
+    collegeId: college.id,
+    departmentId: department.id,
+    ...campusConfig.club,
+  });
   await Promise.all([
     ensureClubMember(club.id, clubLead.id, "PRESIDENT"),
     ensureClubMember(club.id, organizer.id, "ORGANIZER"),
@@ -436,10 +514,10 @@ export async function seedDemoData(): Promise<void> {
     departmentId: department.id,
     clubId: club.id,
     organizerId: organizer.id,
-    title: "Campus Creative Week",
+    title: campusConfig.eventOne.title,
     status: "PUBLISHED",
     startsAt: futureAtDayOffset(5),
-    venue: "Northstar Student Union",
+    venue: campusConfig.eventOne.venue,
     category: "CULTURE",
   });
   const eventTwo = await getDemoEvent({
@@ -447,10 +525,10 @@ export async function seedDemoData(): Promise<void> {
     departmentId: department.id,
     clubId: club.id,
     organizerId: organizer.id,
-    title: "Research & Innovation Forum",
+    title: campusConfig.eventTwo.title,
     status: "SUBMITTED",
     startsAt: futureAtDayOffset(12),
-    venue: "Innovation Hall",
+    venue: campusConfig.eventTwo.venue,
     category: "ACADEMIC",
   });
 
@@ -612,5 +690,11 @@ export async function seedDemoData(): Promise<void> {
       entityId: eventOne.id,
       metadata: { fixture: "development-only" },
     });
+  }
+}
+
+export async function seedDemoData(): Promise<void> {
+  for (const campus of DEMO_CAMPUSES) {
+    await seedDemoCampus(campus);
   }
 }
