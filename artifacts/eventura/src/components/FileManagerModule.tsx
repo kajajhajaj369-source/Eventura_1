@@ -46,6 +46,11 @@ export interface FolderItem {
   itemCount?: number;
 }
 
+export interface SheetData {
+  headers: string[];
+  rows: string[][];
+}
+
 export interface FileItem {
   id: string;
   folderId: string;
@@ -54,12 +59,15 @@ export interface FileItem {
   extension: string;
   size: number; // in bytes
   mimeType: string;
-  dataUrl?: string; // real base64 or blob URL
+  imageUrl?: string; // Path to generated image asset
+  dataUrl?: string; // Base64 data URL
+  sheetData?: SheetData; // Real spreadsheet table data
+  textContent?: string; // Real document content
   createdAt: string;
   description?: string;
 }
 
-// Initial seed data per role so the explorer is instantly ready and populated
+// Initial seed folders for each role
 function getInitialFolders(role: AppRole): FolderItem[] {
   if (role === 'COLLEGE_ADMIN') {
     return [
@@ -82,33 +90,515 @@ function getInitialFolders(role: AppRole): FolderItem[] {
   }
 }
 
+// 20+ rich sample files across Admin, Club, and Organizer folders
 function getInitialFiles(role: AppRole): FileItem[] {
   if (role === 'COLLEGE_ADMIN') {
     return [
-      { id: 'fl-adm-1', folderId: 'f-adm-1', name: 'TechFest_2026_Main_Banner.png', category: 'IMAGE', extension: 'png', size: 2840500, mimeType: 'image/png', createdAt: '2026-02-10T11:00:00Z', description: 'Official campus entrance banner graphic for Tech Fest.' },
-      { id: 'fl-adm-2', folderId: 'f-adm-1', name: 'Cultural_Night_Main_Stage_Poster.jpg', category: 'IMAGE', extension: 'jpg', size: 1950200, mimeType: 'image/jpeg', createdAt: '2026-02-11T12:00:00Z', description: 'Auditorium promotional poster in high resolution.' },
-      { id: 'fl-adm-3', folderId: 'f-adm-2', name: 'Annual_Campus_Fest_Budget_2026.xlsx', category: 'EXCEL', extension: 'xlsx', size: 458900, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', createdAt: '2026-02-12T15:00:00Z', description: 'Department-wise budget approvals and expense allocations.' },
-      { id: 'fl-adm-4', folderId: 'f-adm-2', name: 'Sponsorship_Revenue_Ledger_Q1.xlsx', category: 'EXCEL', extension: 'xlsx', size: 312400, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', createdAt: '2026-02-13T16:30:00Z', description: 'Corporate sponsorship receipts, tiered packages, and vendor payments.' },
-      { id: 'fl-adm-5', folderId: 'f-adm-3', name: 'Campus_Event_Safety_And_Policy_Charter.docx', category: 'WORD', extension: 'docx', size: 215000, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', createdAt: '2026-02-15T10:00:00Z', description: 'Administrative regulation guidelines signed by Dean of Student Affairs.' },
-      { id: 'fl-adm-6', folderId: 'f-adm-3', name: 'Auditorium_Booking_Memorandum.docx', category: 'WORD', extension: 'docx', size: 148000, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', createdAt: '2026-02-16T11:15:00Z', description: 'Terms of facility usage, sound system restrictions, and security deposit.' },
+      {
+        id: 'fl-adm-1',
+        folderId: 'f-adm-1',
+        name: 'Nano_Banana_TechFest_2026_Banner.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 1079164,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/techfest_banana_banner.jpg',
+        createdAt: '2026-02-10T11:00:00Z',
+        description: 'Official 4K campus promotional poster featuring the cyberpunk Nano Banana mascot in neon glow style.',
+      },
+      {
+        id: 'fl-adm-2',
+        folderId: 'f-adm-1',
+        name: 'Cultural_Night_Celebration_Stage.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 1092091,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/cultural_night_poster.jpg',
+        createdAt: '2026-02-11T12:00:00Z',
+        description: 'Vibrant college cultural night live concert amphitheatre poster with musical instruments and crowd.',
+      },
+      {
+        id: 'fl-adm-8',
+        folderId: 'f-adm-1',
+        name: 'Nano_Banana_Innovation_Challenge_Poster.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 979430,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/nano_banana_innovation_poster.jpg',
+        createdAt: '2026-03-01T09:30:00Z',
+        description: 'Cyberpunk Nano Banana mascot at the Campus Innovation Challenge 2026 — neon cityscape with drone swarm backdrop.',
+      },
+      {
+        id: 'fl-adm-9',
+        folderId: 'f-adm-1',
+        name: 'Cultural_Grand_Finale_Nano_Stage.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 925815,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/nano_banana_cultural_night.jpg',
+        createdAt: '2026-03-02T18:00:00Z',
+        description: 'Nano Banana mascot on stage with student performers at the Cultural Night Grand Finale concert.',
+      },
+      {
+        id: 'fl-adm-3',
+        folderId: 'f-adm-2',
+        name: 'Annual_Campus_Fest_Budget_2026.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 458900,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-12T15:00:00Z',
+        description: 'Campus-wide budget allocations, artist fees, sound system rentals, and security disbursement ledger.',
+        sheetData: {
+          headers: ['CATEGORY', 'ALLOCATED (INR)', 'DISBURSED', 'BALANCE', 'APPROVAL STATUS'],
+          rows: [
+            ['Main Stage Production & Sound', '₹ 3,50,000', '₹ 2,00,000', '₹ 1,50,000', 'APPROVED'],
+            ['Celebrity Artist & DJ Honorarium', '₹ 5,00,000', '₹ 2,50,000', '₹ 2,50,000', 'APPROVED'],
+            ['Hackathon Prizes & Swag Kits', '₹ 1,80,000', '₹ 1,80,000', '₹ 0', 'DISBURSED'],
+            ['Campus Decor & Mascot Banners', '₹ 95,000', '₹ 60,000', '₹ 35,000', 'IN PROGRESS'],
+            ['Security & Emergency Services', '₹ 75,000', '₹ 35,000', '₹ 40,000', 'APPROVED'],
+            ['Auditorium HVAC & Electricity Support', '₹ 50,000', '₹ 50,000', '₹ 0', 'CLEARED'],
+          ],
+        },
+      },
+      {
+        id: 'fl-adm-4',
+        folderId: 'f-adm-2',
+        name: 'Corporate_Sponsorship_Tiered_Ledger.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 312400,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-13T16:30:00Z',
+        description: 'Sponsorship package tiers, confirmed corporate partners, booth allocations, and invoice status.',
+        sheetData: {
+          headers: ['PARTNER COMPANY', 'TIER', 'CONTRIBUTION', 'SLOT ALLOTTED', 'PAYMENT STATUS'],
+          rows: [
+            ['Google Cloud Campus', 'Title Sponsor', '₹ 4,00,000', 'Keynote & Main Hall', 'RECEIVED'],
+            ['Intel Student Innovators', 'Platinum', '₹ 2,50,000', 'Workshop Block B', 'RECEIVED'],
+            ['Red Bull Energy Hub', 'Beverage Partner', '₹ 1,20,000', 'Outdoor Quad Arena', 'RECEIVED'],
+            ['GitHub Education Global', 'Dev Tool Partner', '₹ 1,50,000', 'Hackathon Track 1', 'PENDING'],
+            ['NVIDIA Deep Learning Institute', 'Gold', '₹ 2,00,000', 'Robotics Lab 1', 'RECEIVED'],
+          ],
+        },
+      },
+      {
+        id: 'fl-adm-5',
+        folderId: 'f-adm-2',
+        name: 'Vendor_Security_Deposit_Tracker.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 215000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-14T09:45:00Z',
+        description: 'Third-party vendor refundable security deposits and equipment inspection checks.',
+        sheetData: {
+          headers: ['VENDOR NAME', 'EQUIPMENT SUPPLIED', 'DEPOSIT (INR)', 'RETURN DATE', 'INSPECTION'],
+          rows: [
+            ['Apex Acoustic Systems', 'JBL Line Array + Digital Mixers', '₹ 50,000', 'Oct 21, 2026', 'CLEARED'],
+            ['Starlight Truss & Rigging', 'Aluminum Truss + 16 Moving Heads', '₹ 40,000', 'Oct 21, 2026', 'CLEARED'],
+            ['Campus Food Truck Alliance', '6 Multi-cuisine Stalls', '₹ 30,000', 'Oct 20, 2026', 'PENDING CHECK'],
+            ['Paramount Generators', '2x 125kVA Silent Diesel Gensets', '₹ 25,000', 'Oct 21, 2026', 'CLEARED'],
+          ],
+        },
+      },
+      {
+        id: 'fl-adm-6',
+        folderId: 'f-adm-3',
+        name: 'Campus_Event_Regulations_And_Safety_Charter.docx',
+        category: 'WORD',
+        extension: 'docx',
+        size: 245000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        createdAt: '2026-02-15T10:00:00Z',
+        description: 'Official safety regulations, decibel thresholds, and campus curfew directives signed by the Dean.',
+        textContent: `NORTHBRIDGE UNIVERSITY - OFFICE OF CAMPUS ADMINISTRATION
+DOCUMENT ID: NU-REG-2026-SAFETY
+TITLE: CAMPUS EVENT REGULATIONS & SAFETY CHARTER
+
+1. PURPOSE & SCOPE
+This Charter governs all collegiate festivals, technical competitions, and cultural celebrations held across university premises. All clubs, organizers, and visiting guests must strictly adhere to these protocols.
+
+2. TIMINGS & SOUND REGULATIONS
+- Outdoor amphitheatre sound checks and acoustic systems must conclude by 10:00 PM IST sharp.
+- Indoor auditorium events may run until 11:30 PM with certified administrative security officers on duty.
+- Peak decibel levels at the front-of-house mix position must not exceed 92 dB.
+
+3. BRANDING & MASCOT GUIDELINES
+- Official event mascots (including the Nano Banana mascot) are permitted across university portals, entrance arches, and merchandise.
+- Corporate sponsors are restricted from distributing unapproved pamphlets or promotional literature outside designated stall zones.
+
+4. EMERGENCY & MEDICAL READINESS
+- Two ambulances with paramedics must be positioned adjacent to Founders Green.
+- Unobstructed emergency fire egress corridors must be maintained at all auditorium exit doors.
+
+Approved by:
+Office of College Administrator (nana007369@gmail.com)
+Northbridge University Administrative Council`,
+      },
+      {
+        id: 'fl-adm-7',
+        folderId: 'f-adm-3',
+        name: 'Auditorium_Booking_Memorandum.docx',
+        category: 'WORD',
+        extension: 'docx',
+        size: 168000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        createdAt: '2026-02-16T11:15:00Z',
+        description: 'Facility booking confirmation for Grand Central Auditorium (1,200 capacity).',
+        textContent: `MEMORANDUM OF FACILITY RESERVATION
+NORTHBRIDGE UNIVERSITY ESTATES & FACILITIES DIVISION
+
+APPLICATION REFERENCE: AUD-2026-104
+VENUE: Grand Central Auditorium (Main Hall & Balcony, 1,200 Seats)
+ALLOCATED TO: Eventura Campus Workspace Committee
+PRIMARY CONTACT: nana007369@gmail.com
+
+FACILITY SPECIFICATIONS:
+- Stage Width: 30 meters, Depth: 15 meters
+- Lighting Grid: DMX512 automated moving heads with programmable fader desks
+- Seating: Section A (320 VIP), Section B (480 General), Section C (400 Balcony)
+
+CONDITIONS:
+1. Stage setup teams may enter beginning at 06:00 AM on the event date.
+2. No hazardous pyrotechnics or open flames permitted on wooden flooring.
+3. Clean return of stage, dressing rooms, and backstage green rooms required within 6 hours of event completion.`,
+      },
     ];
   } else if (role === 'CLUB') {
     return [
-      { id: 'fl-clb-1', folderId: 'f-clb-1', name: 'Robotics_Club_Brand_Identity.png', category: 'IMAGE', extension: 'png', size: 1520000, mimeType: 'image/png', createdAt: '2026-02-14T12:00:00Z', description: 'Official club crest and vector logos.' },
-      { id: 'fl-clb-2', folderId: 'f-clb-1', name: 'Workshop_Social_Media_Story.jpg', category: 'IMAGE', extension: 'jpg', size: 840000, mimeType: 'image/jpeg', createdAt: '2026-02-15T14:30:00Z', description: 'Instagram and LinkedIn banner for upcoming IoT workshop.' },
-      { id: 'fl-clb-3', folderId: 'f-clb-2', name: 'Club_Member_Directory_2026.xlsx', category: 'EXCEL', extension: 'xlsx', size: 289000, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', createdAt: '2026-02-16T16:00:00Z', description: 'Complete roster of 65 core and general club members.' },
-      { id: 'fl-clb-4', folderId: 'f-clb-2', name: 'Bootcamp_Attendance_Tracker.xlsx', category: 'EXCEL', extension: 'xlsx', size: 195000, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', createdAt: '2026-02-17T17:15:00Z', description: 'Day-by-day attendance log for the 3-day robotics bootcamp.' },
-      { id: 'fl-clb-5', folderId: 'f-clb-3', name: 'Annual_Robotics_Fest_Proposal_Final.docx', category: 'WORD', extension: 'docx', size: 380000, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', createdAt: '2026-02-18T14:00:00Z', description: 'Detailed proposal submitted to College Administration for funding.' },
-      { id: 'fl-clb-6', folderId: 'f-clb-3', name: 'Executive_Meeting_Minutes_Feb.docx', category: 'WORD', extension: 'docx', size: 120000, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', createdAt: '2026-02-19T10:00:00Z', description: 'Action items, budget sign-offs, and committee appointments.' },
+      {
+        id: 'fl-clb-1',
+        folderId: 'f-clb-1',
+        name: 'Collegiate_Hackathon_Nano_Banana_Edition.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 1122246,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/hackathon_coding_banner.jpg',
+        createdAt: '2026-02-14T12:00:00Z',
+        description: 'Collegiate 24-hour hackathon banner featuring neon laptops, code syntax, and the glowing Nano Banana mascot.',
+      },
+      {
+        id: 'fl-clb-2',
+        folderId: 'f-clb-1',
+        name: 'Club_TechFest_Nano_Artwork.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 1079164,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/techfest_banana_banner.jpg',
+        createdAt: '2026-02-15T14:30:00Z',
+        description: 'Club orientation and workshop banner graphic for social media promotions.',
+      },
+      {
+        id: 'fl-clb-8',
+        folderId: 'f-clb-1',
+        name: 'Nano_Banana_Innovation_Club_Banner.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 979430,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/nano_banana_innovation_poster.jpg',
+        createdAt: '2026-03-03T10:00:00Z',
+        description: 'Nano Banana cyberpunk mascot poster used for club recruitment drive and orientation week notice boards.',
+      },
+      {
+        id: 'fl-clb-9',
+        folderId: 'f-clb-1',
+        name: 'Club_Cultural_Event_Performance_Night.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 925815,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/nano_banana_cultural_night.jpg',
+        createdAt: '2026-03-04T19:00:00Z',
+        description: 'Photo from Club Cultural Night — Nano Banana mascot on the main stage with band and crowd visible.',
+      },
+      {
+        id: 'fl-clb-3',
+        folderId: 'f-clb-2',
+        name: 'Club_Active_Member_Roster_2026.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 342000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-16T16:00:00Z',
+        description: 'Active club members, designated domain teams, attendance percentages, and project leads.',
+        sheetData: {
+          headers: ['STUDENT ID', 'NAME', 'DEPARTMENT', 'CLUB ROLE', 'ATTENDANCE %', 'BADGE'],
+          rows: [
+            ['CS-2023-041', 'Arjun Sharma', 'Computer Science', 'President & Lead', '96%', 'CORE-01'],
+            ['EC-2023-118', 'Priya Nair', 'Electronics', 'Hardware Wing Head', '92%', 'CORE-02'],
+            ['ME-2024-055', 'Rohan Verma', 'Mechanical', 'Design & 3D Lead', '88%', 'CORE-03'],
+            ['IT-2024-089', 'Sneha Kulkarni', 'Information Tech', 'Webmaster', '95%', 'CORE-04'],
+            ['CS-2025-012', 'Devansh Roy', 'Computer Science', 'App Development', '90%', 'MEMBER'],
+            ['EE-2025-077', 'Kavya Pillai', 'Electrical Eng', 'IoT Robotics Lab', '94%', 'MEMBER'],
+          ],
+        },
+      },
+      {
+        id: 'fl-clb-4',
+        folderId: 'f-clb-2',
+        name: 'Workshop_Attendance_And_Credits.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 210000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-17T17:15:00Z',
+        description: '3-day technical workshop attendance and academic certification credits tally.',
+        sheetData: {
+          headers: ['SESSION', 'DATE', 'TOPIC COVERED', 'ATTENDEES', 'ACADEMIC CREDITS'],
+          rows: [
+            ['Day 1: Fundamentals', 'Feb 10, 2026', 'Robotics Hardware & Sensors', '74 Students', '0.5 Credits'],
+            ['Day 2: Embedded Code', 'Feb 11, 2026', 'Microcontrollers & C++ Logic', '68 Students', '0.5 Credits'],
+            ['Day 3: Cloud APIs', 'Feb 12, 2026', 'Nano Banana Telemetry Integration', '71 Students', '1.0 Credits'],
+          ],
+        },
+      },
+      {
+        id: 'fl-clb-5',
+        folderId: 'f-clb-2',
+        name: 'Club_Merchandise_PreOrders.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 185000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-18T11:00:00Z',
+        description: 'Student pre-orders for club hoodies, t-shirts, and Nano Banana vinyl stickers.',
+        sheetData: {
+          headers: ['MERCHANDISE ITEM', 'SIZE', 'QTY ORDERED', 'UNIT PRICE', 'TOTAL REVENUE'],
+          rows: [
+            ['TechFest Nano Banana Hoodie', 'M', '45 Units', '₹ 850', '₹ 38,250'],
+            ['TechFest Nano Banana Hoodie', 'L', '50 Units', '₹ 850', '₹ 42,500'],
+            ['Club Oversized Tee (Onyx Black)', 'L', '70 Units', '₹ 450', '₹ 31,500'],
+            ['Nano Banana Holographic Sticker Pack', 'Pack of 5', '120 Packs', '₹ 150', '₹ 18,000'],
+          ],
+        },
+      },
+      {
+        id: 'fl-clb-6',
+        folderId: 'f-clb-3',
+        name: 'Annual_Tech_Fest_Proposal_And_Funding_Request.docx',
+        category: 'WORD',
+        extension: 'docx',
+        size: 395000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        createdAt: '2026-02-18T14:00:00Z',
+        description: 'Formal proposal submitted by the Club to Administration for festival funding.',
+        textContent: `PROJECT PROPOSAL: CAMPUS INNOVATION FESTIVAL 2026
+SUBMITTED BY: animeytsigma@gmail.com (Club Lead)
+SUBMITTED TO: College Administration & Dean of Academics
+
+1. EXECUTIVE OVERVIEW
+The Student Technical & Robotics Club respectfully submits this comprehensive proposal to host the annual Innovation Fest over three calendar days.
+
+2. PLANNED HIGHLIGHTS:
+- 24-Hour Collegiate Hackathon featuring the Nano Banana mascot challenge track.
+- Autonomous Drone Obstacle Course at the Outdoor Quad.
+- Industrial keynote addresses from cloud engineering sponsors.
+
+3. BUDGET SUMMARY
+Total Estimated Budget: ₹ 6,50,000
+Requested University Grant: ₹ 2,50,000
+Corporate Sponsorship Committed: ₹ 4,00,000
+
+We request formal sanction to proceed with venue booking and sponsor contract signing.`,
+      },
+      {
+        id: 'fl-clb-7',
+        folderId: 'f-clb-3',
+        name: 'Club_General_Body_Meeting_Minutes_Feb.docx',
+        category: 'WORD',
+        extension: 'docx',
+        size: 145000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        createdAt: '2026-02-19T10:00:00Z',
+        description: 'Minutes of core committee meeting detailing budget resolutions and duty charts.',
+        textContent: `MINUTES OF THE GENERAL BODY CLUB MEETING
+Date: February 14, 2026
+Presided by: Sam Rivera (Club Lead)
+Vault Sync Account: animeytsigma@gmail.com
+
+AGENDA ITEMS DISCUSSED:
+1. Selection of festival mascot art: Unanimously approved the Cyberpunk Nano Banana mascot designed for all student kits and digital badges.
+2. Committee Appointments:
+   - Technical Review: Arjun Sharma & Devansh Roy
+   - Logistics & Food: Sneha Kulkarni
+   - Social Media & Outreach: Rohan Verma
+
+ACTION ITEMS:
+- Complete pre-registration form deployment on EVENTURA portal by Friday.
+- Coordinate with Campus Admin for security desk clearance.`,
+      },
     ];
   } else {
     return [
-      { id: 'fl-org-1', folderId: 'f-org-1', name: 'Main_Auditorium_Stage_Grid.png', category: 'IMAGE', extension: 'png', size: 3400000, mimeType: 'image/png', createdAt: '2026-02-20T09:00:00Z', description: 'Stage layout blueprint with lighting rig and sound box markers.' },
-      { id: 'fl-org-2', folderId: 'f-org-1', name: 'Outdoor_Quad_Stall_Arrangement.jpg', category: 'IMAGE', extension: 'jpg', size: 2200000, mimeType: 'image/jpeg', createdAt: '2026-02-21T11:30:00Z', description: 'Photographic mapping for food and exhibition stalls.' },
-      { id: 'fl-org-3', folderId: 'f-org-2', name: 'Hackathon_Teams_Master_List.xlsx', category: 'EXCEL', extension: 'xlsx', size: 520000, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', createdAt: '2026-02-22T17:00:00Z', description: '120 registered hackathon teams with problem statements and track leads.' },
-      { id: 'fl-org-4', folderId: 'f-org-2', name: 'Volunteer_Duty_Shifts_And_CheckIn.xlsx', category: 'EXCEL', extension: 'xlsx', size: 275000, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', createdAt: '2026-02-23T18:00:00Z', description: 'Shift timetable for crowd control, stage management, and registration desk.' },
-      { id: 'fl-org-5', folderId: 'f-org-3', name: 'Event_Minute_to_Minute_RunSheet.docx', category: 'WORD', extension: 'docx', size: 290000, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', createdAt: '2026-02-24T11:00:00Z', description: 'Comprehensive cue sheet for audio-visual crew, anchors, and VIP arrival.' },
-      { id: 'fl-org-6', folderId: 'f-org-3', name: 'Corporate_Sponsor_Formal_Pitch_Letter.docx', category: 'WORD', extension: 'docx', size: 165000, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', createdAt: '2026-02-25T14:20:00Z', description: 'Standard partnership invitation template signed by Organizing Committee.' },
+      {
+        id: 'fl-org-1',
+        folderId: 'f-org-1',
+        name: 'Auditorium_3D_Stage_And_Lighting_Grid.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 976039,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/auditorium_stage_layout.jpg',
+        createdAt: '2026-02-20T09:00:00Z',
+        description: '3D architectural layout of the main auditorium stage, lighting truss grid, and FOH sound desk.',
+      },
+      {
+        id: 'fl-org-2',
+        folderId: 'f-org-1',
+        name: 'Outdoor_Quad_Nano_Zone_Layout.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 1092091,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/cultural_night_poster.jpg',
+        createdAt: '2026-02-21T11:30:00Z',
+        description: 'Photographic reference of the amphitheatre stage and lighting setup for evening performances.',
+      },
+      {
+        id: 'fl-org-8',
+        folderId: 'f-org-1',
+        name: 'Event_Promo_Nano_Banana_Innovation_Fest.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 979430,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/nano_banana_innovation_poster.jpg',
+        createdAt: '2026-03-05T08:00:00Z',
+        description: 'Official organizer-approved Nano Banana Innovation Fest promotional poster for digital display screens.',
+      },
+      {
+        id: 'fl-org-9',
+        folderId: 'f-org-1',
+        name: 'Cultural_Finale_Stage_Coverage.jpg',
+        category: 'IMAGE',
+        extension: 'jpg',
+        size: 925815,
+        mimeType: 'image/jpeg',
+        imageUrl: '/sample-drive/nano_banana_cultural_night.jpg',
+        createdAt: '2026-03-06T20:30:00Z',
+        description: 'Stage photography from Cultural Night Grand Finale — Nano Banana mascot with performing artists on stage.',
+      },
+      {
+        id: 'fl-org-3',
+        folderId: 'f-org-2',
+        name: 'Hackathon_Teams_Master_Registration.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 540000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-22T17:00:00Z',
+        description: '120 registered hackathon teams with problem statement domains, table numbers, and mentors.',
+        sheetData: {
+          headers: ['TEAM CODE', 'TEAM NAME', 'INSTITUTE', 'DOMAIN TRACK', 'LAB ASSIGNED', 'STATUS'],
+          rows: [
+            ['HK-101', 'ByteBuilders', 'Northbridge University', 'AI & Automation', 'Lab Block B - Room 201', 'CHECKED IN'],
+            ['HK-102', 'NeuralKnights', 'VIT Vellore', 'Cybersecurity', 'Lab Block B - Room 202', 'CHECKED IN'],
+            ['HK-103', 'BananaDevs', 'IIT Bombay', 'Full Stack Web3', 'Lab Block B - Room 203', 'CHECKED IN'],
+            ['HK-104', 'CodeCrafters', 'BITS Pilani', 'Campus IoT', 'Lab Block B - Room 204', 'CHECKED IN'],
+            ['HK-105', 'QuantumLeap', 'IIIT Hyderabad', 'Generative Media', 'Lab Block B - Room 205', 'CHECKED IN'],
+          ],
+        },
+      },
+      {
+        id: 'fl-org-4',
+        folderId: 'f-org-2',
+        name: 'Volunteer_Shift_Roster_And_Badges.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 285000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-23T18:00:00Z',
+        description: 'Timetable of student volunteers assigned to crowd control, badge check-in, and stage logistics.',
+        sheetData: {
+          headers: ['VOLUNTEER NAME', 'DUTY ASSIGNMENT', 'LOCATION', 'SHIFT TIMINGS', 'CONTACT'],
+          rows: [
+            ['Riley Brooks', 'VIP Escort & Reception', 'Main Auditorium Foyer', '08:00 AM - 02:00 PM', '+91 98450 11234'],
+            ['Jamie Okafor', 'Stage Audio & Mic Check', 'Auditorium Green Room', '01:30 PM - 07:30 PM', '+91 97120 44589'],
+            ['Alex Rivera', 'QR Pass Scanner Desk', 'North Entrance Gate', '07:30 AM - 01:30 PM', '+91 99011 22345'],
+            ['Taylor Chen', 'Hackathon Lab Support', 'Computer Science Lab 2', '06:00 PM - 02:00 AM', '+91 96540 88912'],
+          ],
+        },
+      },
+      {
+        id: 'fl-org-5',
+        folderId: 'f-org-2',
+        name: 'Stage_Equipment_Checklist_And_Cables.xlsx',
+        category: 'EXCEL',
+        extension: 'xlsx',
+        size: 195000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        createdAt: '2026-02-24T08:15:00Z',
+        description: 'Audio-visual hardware inventory, XLR cables, direct boxes, and stage monitor routing.',
+        sheetData: {
+          headers: ['ITEM DESCRIPTION', 'BRAND / MODEL', 'QTY', 'ROUTING / CHANNEL', 'STATUS'],
+          rows: [
+            ['Wireless Vocal Microphone', 'Shure SM58 Beta', '6 Units', 'Ch 1 - 6 to FOH', 'TESTED & READY'],
+            ['Active Direct Box', 'Radial ProDI', '4 Units', 'Ch 7 - 10 Instruments', 'TESTED & READY'],
+            ['Digital Stage Console', 'Behringer X32 Producer', '1 Unit', 'FOH Mix Desk', 'CALIBRATED'],
+            ['LED Moving Spot Heads', 'Chauvet Rogue R2', '12 Units', 'DMX Universe 1', 'PROGRAMMED'],
+          ],
+        },
+      },
+      {
+        id: 'fl-org-6',
+        folderId: 'f-org-3',
+        name: 'Event_Minute_To_Minute_Cue_Sheet_RunSheet.docx',
+        category: 'WORD',
+        extension: 'docx',
+        size: 320000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        createdAt: '2026-02-24T11:00:00Z',
+        description: 'Chronological timeline for audio crew, lighting operators, anchors, and VIP presentations.',
+        textContent: `CAMPUS FESTIVAL: OFFICIAL MINUTE-TO-MINUTE OPERATIONAL RUN SHEET
+ORGANIZER VAULT: rudratejwankhede@gmail.com
+EVENT DATE: October 15, 2026
+VENUE: Grand Auditorium & Campus Quad
+
+TIMELINE BREAKDOWN:
+08:00 AM - Gate security scan active. Volunteer check-in at North Foyer.
+09:00 AM - Auditorium house doors open for attendees. Ambient lighting set.
+09:30 AM - Welcome address by student anchors. National Anthem playback.
+09:45 AM - Dean's opening speech and presentation of the honorary guest.
+10:15 AM - Official video trailer release featuring the Nano Banana mascot.
+11:00 AM - Hackathon kickoff signal across Lab Blocks A & B.
+01:00 PM - Lunch break: Quad food truck area activated.
+03:30 PM - Tech keynote by guest speaker in Main Hall.
+06:00 PM - Amphitheatre acoustic performances commence.
+09:30 PM - Day 1 stage wrap & overnight lab monitoring protocol active.`,
+      },
+      {
+        id: 'fl-org-7',
+        folderId: 'f-org-3',
+        name: 'Guest_Speaker_Hospitality_Protocol.docx',
+        category: 'WORD',
+        extension: 'docx',
+        size: 175000,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        createdAt: '2026-02-25T14:20:00Z',
+        description: 'Hospitality guidelines, airport transfers, guest lounge, and memento presentation.',
+        textContent: `GUEST SPEAKER & JURY HOSPITALITY PROTOCOL
+ORGANIZED BY: Campus Event Operations Team
+VAULT SYNC: rudratejwankhede@gmail.com
+
+1. AIRPORT TRANSIT & ARRIVAL
+- Dedicated transport liaison assigned with university vehicle.
+- Welcome kit containing TechFest badge, Nano Banana special edition pin, and campus map provided.
+
+2. GREEN ROOM CONVENIENCES
+- High-speed private WiFi network allocated (SSID: NU-GUEST-VIP).
+- Refreshments and hot beverage station maintained in Green Room 1.
+
+3. STAGE INTRODUCTION & MEMENTO
+- Anchor cue sheet with biography points prepared.
+- Formal token of gratitude and memento presented by Dean on stage.`,
+      },
     ];
   }
 }
@@ -144,6 +634,9 @@ function formatDate(isoString: string): string {
   }
 }
 
+// Bump this whenever sample seed data is updated so browsers auto-refresh localStorage
+const SEED_VERSION = 'v3-nano-banana-2026';
+
 export function FileManagerModule({ role }: { role: AppRole }) {
   const accountInfo = ROLE_STORAGE_ACCOUNTS[role] || {
     email: 'nana007369@gmail.com',
@@ -152,12 +645,21 @@ export function FileManagerModule({ role }: { role: AppRole }) {
 
   const storageKeyFolders = `eventura_drive_folders_${role}`;
   const storageKeyFiles = `eventura_drive_files_${role}`;
+  const storageKeyVersion = `eventura_drive_seed_version_${role}`;
 
   const [folders, setFolders] = useState<FolderItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem(storageKeyFolders);
-        if (saved) return JSON.parse(saved);
+        const version = localStorage.getItem(storageKeyVersion);
+        if (version === SEED_VERSION) {
+          const saved = localStorage.getItem(storageKeyFolders);
+          if (saved) return JSON.parse(saved);
+        } else {
+          // Seed version changed — clear stale data
+          localStorage.removeItem(storageKeyFolders);
+          localStorage.removeItem(storageKeyFiles);
+          localStorage.setItem(storageKeyVersion, SEED_VERSION);
+        }
       } catch {}
     }
     return getInitialFolders(role);
@@ -166,8 +668,14 @@ export function FileManagerModule({ role }: { role: AppRole }) {
   const [files, setFiles] = useState<FileItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem(storageKeyFiles);
-        if (saved) return JSON.parse(saved);
+        const version = localStorage.getItem(storageKeyVersion);
+        if (version === SEED_VERSION) {
+          const saved = localStorage.getItem(storageKeyFiles);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          }
+        }
       } catch {}
     }
     return getInitialFiles(role);
@@ -201,13 +709,7 @@ export function FileManagerModule({ role }: { role: AppRole }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        // Save files (excluding giant dataUrls if any, or retain lightweight storage)
-        const lightweight = files.map(f => ({
-          ...f,
-          // keep dataUrl if small (< 2MB)
-          dataUrl: f.dataUrl && f.dataUrl.length < 2000000 ? f.dataUrl : undefined,
-        }));
-        localStorage.setItem(storageKeyFiles, JSON.stringify(lightweight));
+        localStorage.setItem(storageKeyFiles, JSON.stringify(files));
       } catch {}
     }
   }, [files, storageKeyFiles]);
@@ -217,10 +719,19 @@ export function FileManagerModule({ role }: { role: AppRole }) {
     setTimeout(() => setStatusNotification(null), 3500);
   };
 
+  // Reset to initial files if requested
+  const handleRestoreSamples = () => {
+    const initialF = getInitialFolders(role);
+    const initialFiles = getInitialFiles(role);
+    setFolders(initialF);
+    setFiles(initialFiles);
+    showNotification(`Restored default cloud vault sample files for ${accountInfo.vaultLabel}.`);
+  };
+
   // Navigation helpers
   const currentFolder = folders.find(f => f.id === currentFolderId) || null;
 
-  // Build breadcrumb trail
+  // Breadcrumbs
   const breadcrumbs: { id: string | null; name: string }[] = [{ id: null, name: 'Workspace Drive' }];
   if (currentFolder) {
     breadcrumbs.push({ id: currentFolder.id, name: currentFolder.name });
@@ -236,16 +747,14 @@ export function FileManagerModule({ role }: { role: AppRole }) {
     : [];
 
   const visibleFiles = files.filter(f => {
-    // If in root, show all or show nothing? In Windows PC, root can show files or folder files
     const inCurrentScope = currentFolderId ? f.folderId === currentFolderId : f.folderId === null || f.folderId === undefined;
     const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCat = filterCategory === 'ALL' || f.category === filterCategory;
     return inCurrentScope && matchesSearch && matchesCat;
   });
 
-  // Calculate storage usage
+  // Storage metrics
   const totalBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
-  const totalCount = files.length;
   const imageCount = files.filter(f => f.category === 'IMAGE').length;
   const excelCount = files.filter(f => f.category === 'EXCEL').length;
   const wordCount = files.filter(f => f.category === 'WORD').length;
@@ -292,12 +801,11 @@ export function FileManagerModule({ role }: { role: AppRole }) {
     showNotification(`File "${fileName}" removed.`);
   };
 
-  // Handle Real File Upload
+  // File Upload
   const handleFilesSelected = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
 
     const targetFolderId = currentFolderId || (folders[0]?.id ?? 'default-folder');
-    const newItems: FileItem[] = [];
 
     Array.from(fileList).forEach(file => {
       const category = detectCategory(file.name);
@@ -321,7 +829,6 @@ export function FileManagerModule({ role }: { role: AppRole }) {
         setFiles(prev => [item, ...prev]);
       };
       reader.readAsDataURL(file);
-      newItems.push({} as FileItem); // counter
     });
 
     showNotification(`Uploaded ${fileList.length} file(s) into ${currentFolder?.name || 'Workspace Drive'}.`);
@@ -331,6 +838,19 @@ export function FileManagerModule({ role }: { role: AppRole }) {
   const handleDownload = (file: FileItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
 
+    // 1. Direct Image Asset download
+    if (file.imageUrl) {
+      const link = document.createElement('a');
+      link.href = file.imageUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification(`Downloading ${file.name}...`);
+      return;
+    }
+
+    // 2. DataURL download
     if (file.dataUrl) {
       const link = document.createElement('a');
       link.href = file.dataUrl;
@@ -339,20 +859,56 @@ export function FileManagerModule({ role }: { role: AppRole }) {
       link.click();
       document.body.removeChild(link);
       showNotification(`Downloading ${file.name}...`);
-    } else {
-      // Create a mock blob text download if real dataUrl isn't embedded
-      const sampleText = `EVENTURA Campus Cloud Document\nFile: ${file.name}\nCategory: ${file.category}\nVault Account: ${accountInfo.email}\nTimestamp: ${file.createdAt}\n\n[Verified Campus Document Payload]`;
-      const blob = new Blob([sampleText], { type: 'text/plain' });
+      return;
+    }
+
+    // 3. Excel Spreadsheet CSV download
+    if (file.category === 'EXCEL' && file.sheetData) {
+      const csvRows = [
+        file.sheetData.headers.join(','),
+        ...file.sheetData.rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')),
+      ];
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = file.name.endsWith('.txt') ? file.name : `${file.name}.txt`;
+      link.download = file.name.replace(/\.[^.]+$/, '') + '.csv';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      showNotification(`Downloading ${file.name}...`);
+      showNotification(`Downloading spreadsheet ${file.name}...`);
+      return;
     }
+
+    // 4. Word Document Text download
+    if (file.textContent) {
+      const blob = new Blob([file.textContent], { type: 'text/plain;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name.endsWith('.txt') ? file.name : `${file.name.replace(/\.[^.]+$/, '')}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showNotification(`Downloading document ${file.name}...`);
+      return;
+    }
+
+    // 5. Fallback download
+    const sampleText = `EVENTURA Campus Cloud Vault\nFile: ${file.name}\nCategory: ${file.category}\nVault Account: ${accountInfo.email}\nTimestamp: ${file.createdAt}\n\n[Verified Campus Payload]`;
+    const blob = new Blob([sampleText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.name.endsWith('.txt') ? file.name : `${file.name}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showNotification(`Downloading ${file.name}...`);
   };
 
   // Drag and Drop handlers
@@ -444,7 +1000,28 @@ export function FileManagerModule({ role }: { role: AppRole }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleRestoreSamples}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 12px',
+                borderRadius: '9px',
+                background: 'rgba(255, 255, 255, 0.12)',
+                color: '#e2e8f0',
+                border: '1px solid rgba(255, 255, 255, 0.18)',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="Reset and reload initial sample images & spreadsheets"
+            >
+              <Sparkles size={13} color="#facc15" /> Sample Files
+            </button>
+
             <button
               type="button"
               onClick={() => setIsNewFolderOpen(true)}
@@ -725,7 +1302,7 @@ export function FileManagerModule({ role }: { role: AppRole }) {
             { id: 'ALL', label: 'All Items' },
             { id: 'IMAGE', label: '🖼️ Images (PNG, JPG)' },
             { id: 'EXCEL', label: '📊 Excel Sheets (XLSX, CSV)' },
-            { id: 'WORD', label: '📝 Word Docs (DOCX, PDF)' },
+            { id: 'WORD', label: '📝 Word Docs (DOCX, TXT)' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -990,7 +1567,7 @@ export function FileManagerModule({ role }: { role: AppRole }) {
                   {/* File preview box */}
                   <div
                     style={{
-                      height: '110px',
+                      height: '115px',
                       borderRadius: '8px',
                       background: file.category === 'IMAGE' ? '#f3f4f8' : file.category === 'EXCEL' ? '#ecfdf5' : '#eff6ff',
                       display: 'flex',
@@ -1001,9 +1578,9 @@ export function FileManagerModule({ role }: { role: AppRole }) {
                     }}
                   >
                     {file.category === 'IMAGE' ? (
-                      file.dataUrl ? (
+                      file.imageUrl || file.dataUrl ? (
                         <img
-                          src={file.dataUrl}
+                          src={file.imageUrl || file.dataUrl}
                           alt={file.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -1364,7 +1941,7 @@ export function FileManagerModule({ role }: { role: AppRole }) {
               background: '#fff',
               borderRadius: '18px',
               padding: '24px',
-              width: '640px',
+              width: '740px',
               maxWidth: '100%',
               maxHeight: '90vh',
               overflowY: 'auto',
@@ -1410,69 +1987,96 @@ export function FileManagerModule({ role }: { role: AppRole }) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minHeight: '220px',
+                minHeight: '260px',
               }}
             >
-              {previewFile.category === 'IMAGE' && previewFile.dataUrl ? (
-                <img
-                  src={previewFile.dataUrl}
-                  alt={previewFile.name}
-                  style={{ maxWidth: '100%', maxHeight: '360px', objectFit: 'contain', borderRadius: '8px' }}
-                />
+              {/* IMAGE PREVIEW */}
+              {previewFile.category === 'IMAGE' && (previewFile.imageUrl || previewFile.dataUrl) ? (
+                <div style={{ width: '100%', textAlign: 'center' }}>
+                  <img
+                    src={previewFile.imageUrl || previewFile.dataUrl}
+                    alt={previewFile.name}
+                    style={{ maxWidth: '100%', maxHeight: '420px', objectFit: 'contain', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}
+                  />
+                  <div style={{ marginTop: '10px', fontSize: '11px', color: '#68728d', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <Sparkles size={13} color="#f59e0b" />
+                    <span>Artwork rendered with Nano Banana mascot theme</span>
+                  </div>
+                </div>
               ) : previewFile.category === 'IMAGE' ? (
                 <div style={{ textAlign: 'center', color: '#556080' }}>
                   <FileImage size={48} color="#3b82f6" style={{ marginBottom: '10px' }} />
                   <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>High Resolution Campus Graphic</p>
                   <small style={{ color: '#8892ad' }}>Encrypted on {accountInfo.vaultLabel}</small>
                 </div>
-              ) : previewFile.category === 'EXCEL' ? (
+              ) : previewFile.category === 'EXCEL' && previewFile.sheetData ? (
+                /* EXCEL SPREADSHEET TABLE PREVIEW */
                 <div style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#047857' }}>
-                    <FileSpreadsheet size={22} />
-                    <strong style={{ fontSize: '13px' }}>Microsoft Excel Worksheet Preview</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#047857' }}>
+                      <FileSpreadsheet size={20} />
+                      <strong style={{ fontSize: '13px' }}>Microsoft Excel Worksheet Preview</strong>
+                    </div>
+                    <span style={{ fontSize: '10px', background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                      Active Sheet 1
+                    </span>
                   </div>
-                  <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden', fontSize: '11px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr', background: '#f1f5f9', fontWeight: 700, padding: '8px 10px', borderBottom: '1px solid #cbd5e1' }}>
-                      <span>ROW</span>
-                      <span>COLUMN A</span>
-                      <span>COLUMN B</span>
-                      <span>COLUMN C</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr', padding: '8px 10px', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ color: '#94a3b8' }}>1</span>
-                      <span>Campus Registration ID</span>
-                      <span>Department</span>
-                      <span>Approval Status</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr', padding: '8px 10px', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ color: '#94a3b8' }}>2</span>
-                      <span>EV-2026-001</span>
-                      <span>Computer Science</span>
-                      <span style={{ color: '#16a34a', fontWeight: 700 }}>VERIFIED</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr', padding: '8px 10px' }}>
-                      <span style={{ color: '#94a3b8' }}>3</span>
-                      <span>EV-2026-002</span>
-                      <span>Campus Administration</span>
-                      <span style={{ color: '#16a34a', fontWeight: 700 }}>VERIFIED</span>
-                    </div>
+
+                  <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #cbd5e1', overflowX: 'auto', fontSize: '11px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: 700 }}>
+                          <th style={{ padding: '8px 12px', borderRight: '1px solid #e2e8f0', width: '50px', textAlign: 'center' }}>#</th>
+                          {previewFile.sheetData.headers.map((h, i) => (
+                            <th key={i} style={{ padding: '8px 12px', borderRight: '1px solid #e2e8f0' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewFile.sheetData.rows.map((row, rIdx) => (
+                          <tr key={rIdx} style={{ borderBottom: '1px solid #f1f5f9', background: rIdx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                            <td style={{ padding: '7px 12px', borderRight: '1px solid #e2e8f0', textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{rIdx + 1}</td>
+                            {row.map((cell, cIdx) => (
+                              <td key={cIdx} style={{ padding: '7px 12px', borderRight: '1px solid #e2e8f0', color: cell.includes('APPROVED') || cell.includes('RECEIVED') || cell.includes('CLEARED') || cell.includes('CHECKED IN') ? '#16a34a' : '#334155', fontWeight: cell.includes('APPROVED') || cell.includes('RECEIVED') || cell.includes('CLEARED') ? 700 : 400 }}>
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : previewFile.textContent ? (
+                /* WORD DOCUMENT PREVIEW */
+                <div style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#4338ca' }}>
+                    <FileText size={20} />
+                    <strong style={{ fontSize: '13px' }}>Microsoft Word Document Preview</strong>
+                  </div>
+                  <div
+                    style={{
+                      background: '#fff',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      padding: '20px 24px',
+                      fontSize: '12px',
+                      lineHeight: 1.7,
+                      color: '#1e293b',
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'Georgia, serif',
+                      maxHeight: '320px',
+                      overflowY: 'auto',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    {previewFile.textContent}
                   </div>
                 </div>
               ) : (
-                <div style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#4338ca' }}>
-                    <FileText size={22} />
-                    <strong style={{ fontSize: '13px' }}>Microsoft Word Document Preview</strong>
-                  </div>
-                  <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '16px', fontSize: '12px', lineHeight: 1.6, color: '#334155' }}>
-                    <strong style={{ fontSize: '13px', display: 'block', marginBottom: '6px' }}>{previewFile.name.replace(/\.[^.]+$/, '')}</strong>
-                    <p style={{ margin: '0 0 8px 0' }}>
-                      This document has been archived into the encrypted campus workspace vault under account <code>{accountInfo.email}</code>.
-                    </p>
-                    <p style={{ margin: 0, color: '#64748b' }}>
-                      Full revision history, signatures, and document headers are preserved. Click Download below to open in Microsoft Word or Office.
-                    </p>
-                  </div>
+                <div style={{ textAlign: 'center', color: '#64748b' }}>
+                  <File size={36} color="#94a3b8" style={{ marginBottom: '8px' }} />
+                  <p style={{ margin: 0, fontSize: '12px' }}>File verified in {accountInfo.vaultLabel}</p>
                 </div>
               )}
             </div>
