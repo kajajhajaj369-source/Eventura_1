@@ -2,7 +2,6 @@ import './app.css';
 import './role-preview.css';
 import { useEffect, type FormEvent, type ReactNode, useState } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
-import { publishableKeyFromHost } from '@clerk/react/internal';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, CircleHelp, Clock3, Command, Compass, GraduationCap, LayoutDashboard, LogOut, Menu, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
@@ -14,7 +13,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
-const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const clerkPubKey =
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  'pk_test_YW1wbGUtZ2Vja28tNzQ2LmNsZXJrLmFjY291bnRzLmRldiQ';
 const clerkAppearance = {
   cssLayerName: 'clerk',
   variables: {
@@ -178,6 +179,7 @@ function Home() {
         <a href="#workspace" data-testid="link-workspace">Workspace</a>
         <a href="#roles" data-testid="link-roles">For your role</a>
         <a href="#rhythm" data-testid="link-rhythm">How it works</a>
+        <Link href="/preview" className="text-link" data-testid="link-nav-preview" style={{ color: '#4f5fd3', fontWeight: 600 }}>Explore Dashboards</Link>
       </nav>
       <div className="landing-actions">
         <Link href="/sign-in" className="text-link" data-testid="link-sign-in">Sign in</Link>
@@ -193,7 +195,7 @@ function Home() {
           <Link href="/sign-up" className="button button-primary button-large" data-testid="link-create-account">Bring your campus together <ArrowRight size={17} /></Link>
           <Link href="/sign-in" className="hero-secondary" data-testid="link-returning-user">Already part of a campus? <span>Sign in</span></Link>
         </div>
-        {import.meta.env.DEV && <Link href="/dev/role-preview" className="role-preview-entry" data-testid="link-role-preview">Preview all five roles <ArrowRight size={14} /></Link>}
+        <Link href="/preview" className="role-preview-entry" data-testid="link-role-preview">Preview all 5 roles (Admin, Club, Student...) <ArrowRight size={14} /></Link>
         <div className="hero-proof"><div className="proof-icons"><span>A</span><span>C</span><span>S</span><span>+</span></div><span>For every team behind campus life</span></div>
       </div>
       <div className="hero-art" aria-label="Illustration of a connected campus workspace">
@@ -264,7 +266,14 @@ function ProfileQueryState({ children }: { children: (profile: UserProfile) => R
 
 function HomeRedirect() {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <LoadingPage label="Opening EVENTURA" />;
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setTimedOut(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isLoaded && !timedOut) return <LoadingPage label="Opening EVENTURA" />;
   return isSignedIn ? <Redirect to="/portal" /> : <Home />;
 }
 
@@ -390,7 +399,7 @@ function WorkspaceFrame({ profile, title, crumb, children, previewMode = false, 
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close menu" onClick={() => setMenuOpen(false)} data-testid="button-menu-backdrop" />}
     <div className="workspace-main">
-      <header className="workspace-topbar"><div className="topbar-left"><button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open navigation" data-testid="button-open-menu"><Menu size={20} /></button><span className="topbar-campus">{profile.collegeName || 'Campus workspace'}</span><ChevronRight size={14} /><span className="topbar-crumb">{crumb}</span></div><div className="topbar-right">{import.meta.env.DEV && !previewMode && <Link href="/dev/role-preview" className="workspace-preview-link" data-testid="link-role-preview">Preview roles</Link>}<span className="workspace-status"><i /> {previewMode ? 'SAMPLE PREVIEW' : 'CAMPUS SPACE'}</span>{previewMode ? <button type="button" className="topbar-avatar preview-avatar" aria-label="Preview profile" data-testid="button-preview-profile" onClick={() => onPreviewNavigate?.('My profile')}>{initialsText}</button> : <Link href="/profile" className="topbar-avatar" aria-label="Open profile" data-testid="link-profile-avatar">{initialsText}</Link>}</div></header>
+      <header className="workspace-topbar"><div className="topbar-left"><button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open navigation" data-testid="button-open-menu"><Menu size={20} /></button><span className="topbar-campus">{profile.collegeName || 'Campus workspace'}</span><ChevronRight size={14} /><span className="topbar-crumb">{crumb}</span></div><div className="topbar-right">{!previewMode && <Link href="/preview" className="workspace-preview-link" data-testid="link-role-preview">Preview roles</Link>}<span className="workspace-status"><i /> {previewMode ? 'SAMPLE PREVIEW' : 'CAMPUS SPACE'}</span>{previewMode ? <button type="button" className="topbar-avatar preview-avatar" aria-label="Preview profile" data-testid="button-preview-profile" onClick={() => onPreviewNavigate?.('My profile')}>{initialsText}</button> : <Link href="/profile" className="topbar-avatar" aria-label="Open profile" data-testid="link-profile-avatar">{initialsText}</Link>}</div></header>
       <main className="workspace-content"><div className="content-title-row"><div><span className="eyebrow">{crumb}</span><h1 className="font-display" data-testid="text-page-title">{title}</h1></div><div className="today-label"><Clock3 size={15} /><span>{new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date())}</span></div></div>{children}</main>
       <footer className="workspace-footer"><span>EVENTURA <b>·</b> Campus, in sync.</span>{previewMode ? <button type="button" className="workspace-footer-preview-link" onClick={() => onPreviewNavigate?.('My profile')} data-testid="button-preview-footer-profile">Sample profile <ArrowUpRight size={13} /></button> : <Link href="/profile" data-testid="footer-profile">Account settings <ArrowUpRight size={13} /></Link>}</footer>
     </div>
@@ -467,7 +476,8 @@ function AppRoutes() {
     <Route path="/sign-up/*?" component={SignUpPage} />
     <Route path="/portal" component={PortalPage} />
     <Route path="/profile" component={ProfilePage} />
-    {import.meta.env.DEV && <Route path="/dev/role-preview" component={RolePreviewPage} />}
+    <Route path="/preview" component={RolePreviewPage} />
+    <Route path="/dev/role-preview" component={RolePreviewPage} />
     <Route path="/admin/:module?" component={() => <WorkspaceRoute role="COLLEGE_ADMIN" />} />
     <Route path="/club/:module?" component={() => <WorkspaceRoute role="CLUB" />} />
     <Route path="/organizer/:module?" component={() => <WorkspaceRoute role="ORGANIZER" />} />

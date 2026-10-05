@@ -5,6 +5,7 @@
 [build.environment]
   NODE_VERSION = "20"
   PNPM_FLAGS = "--no-frozen-lockfile"
+  VITE_CLERK_PUBLISHABLE_KEY = "pk_test_YW1wbGUtZ2Vja28tNzQ2LmNsZXJrLmFjY291bnRzLmRldiQ"
 
 [[redirects]]
   from = "/*"
