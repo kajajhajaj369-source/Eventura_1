@@ -1,4 +1,5 @@
 import './app.css';
+import './role-preview.css';
 import { useEffect, type FormEvent, type ReactNode, useState } from 'react';
 import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
@@ -6,7 +7,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, CircleHelp, Clock3, Command, Compass, GraduationCap, LayoutDashboard, LogOut, Menu, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { useGetCurrentUser, useGetDashboardSummary, useUpdateMyProfile, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
-import type { AppRole, ProfileUpdate, UserProfile } from '@workspace/api-client-react';
+import type { AppRole, DashboardSummary, ProfileUpdate, UserProfile } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -69,6 +70,74 @@ const moduleMap: Record<string, string[]> = {
   volunteer: ['Assigned events', 'Tasks', 'Duty schedule', 'Attendance'],
 };
 
+const roleOrder: AppRole[] = ['COLLEGE_ADMIN', 'CLUB', 'ORGANIZER', 'STUDENT', 'VOLUNTEER'];
+
+const previewProfiles: Record<AppRole, UserProfile> = {
+  COLLEGE_ADMIN: { id: '00000000-0000-4000-8000-000000000001', name: 'Avery Morgan', email: 'avery.admin@preview.eventura.test', role: 'COLLEGE_ADMIN', collegeName: 'Northbridge University', profile: { phone: null, department: 'Campus Administration', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  CLUB: { id: '00000000-0000-4000-8000-000000000002', name: 'Sam Rivera', email: 'sam.club@preview.eventura.test', role: 'CLUB', collegeName: 'Northbridge University', profile: { phone: null, department: 'Student Organizations', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  ORGANIZER: { id: '00000000-0000-4000-8000-000000000003', name: 'Jordan Kim', email: 'jordan.organizer@preview.eventura.test', role: 'ORGANIZER', collegeName: 'Northbridge University', profile: { phone: null, department: 'Campus Events', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  STUDENT: { id: '00000000-0000-4000-8000-000000000004', name: 'Casey Patel', email: 'casey.student@preview.eventura.test', role: 'STUDENT', collegeName: 'Northbridge University', profile: { phone: null, department: 'Computer Science', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  VOLUNTEER: { id: '00000000-0000-4000-8000-000000000005', name: 'Riley Chen', email: 'riley.volunteer@preview.eventura.test', role: 'VOLUNTEER', collegeName: 'Northbridge University', profile: { phone: null, department: 'Campus Community', bio: 'Sample role preview.' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+};
+
+function previewEventDate(daysAhead: number, hour: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+}
+
+function buildPreviewSummary(role: AppRole, greeting: string, metrics: DashboardSummary['metrics']): DashboardSummary {
+  const rolePrefix = role.toLowerCase().replace(/_/g, '-');
+  return {
+    role,
+    collegeName: 'Northbridge University',
+    greeting,
+    metrics,
+    events: [
+      { id: `preview-${rolePrefix}-event-1`, title: 'Campus Creative Week', category: 'Arts & culture', startAt: previewEventDate(4, 18), venue: 'North Hall', status: 'PUBLISHED' },
+      { id: `preview-${rolePrefix}-event-2`, title: 'Open Mic on the Quad', category: 'Campus community', startAt: previewEventDate(8, 19), venue: 'Founders Green', status: 'APPROVED' },
+    ],
+    activity: [
+      { id: `${rolePrefix}-activity-1`, title: 'Sample workspace update', detail: 'Illustrative activity for this role preview.', occurredAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+      { id: `${rolePrefix}-activity-2`, title: 'Campus Creative Week', detail: 'A sample event is on this preview dashboard.', occurredAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() },
+    ],
+  };
+}
+
+const previewSummaries: Record<AppRole, DashboardSummary> = {
+  COLLEGE_ADMIN: buildPreviewSummary('COLLEGE_ADMIN', 'Welcome, Avery.', [
+    { key: 'published-events', label: 'Published events', value: 12, helper: 'Sample campus total', tone: 'accent' },
+    { key: 'active-clubs', label: 'Active clubs', value: 8, helper: 'Sample organizations', tone: 'success' },
+    { key: 'upcoming-events', label: 'Coming this week', value: 4, helper: 'Across campus', tone: 'neutral' },
+    { key: 'pending-reviews', label: 'Needs review', value: 2, helper: 'Sample queue', tone: 'warning' },
+  ]),
+  CLUB: buildPreviewSummary('CLUB', 'Welcome, Sam.', [
+    { key: 'club-members', label: 'Club members', value: 34, helper: 'Sample organization', tone: 'accent' },
+    { key: 'club-events', label: 'Upcoming events', value: 2, helper: 'For this club', tone: 'success' },
+    { key: 'club-organizers', label: 'Organizers', value: 5, helper: 'Sample team', tone: 'neutral' },
+    { key: 'club-registrations', label: 'Registrations', value: 28, helper: 'Across sample events', tone: 'warning' },
+  ]),
+  ORGANIZER: buildPreviewSummary('ORGANIZER', 'Welcome, Jordan.', [
+    { key: 'owned-events', label: 'Events owned', value: 3, helper: 'Sample portfolio', tone: 'accent' },
+    { key: 'organizer-events', label: 'Coming this week', value: 2, helper: 'Sample schedule', tone: 'success' },
+    { key: 'organizer-volunteers', label: 'Volunteers', value: 12, helper: 'Across sample events', tone: 'neutral' },
+    { key: 'organizer-updates', label: 'Recent updates', value: 5, helper: 'Sample activity', tone: 'warning' },
+  ]),
+  STUDENT: buildPreviewSummary('STUDENT', 'Welcome, Casey.', [
+    { key: 'discover-events', label: 'Discover events', value: 8, helper: 'Sample campus calendar', tone: 'accent' },
+    { key: 'student-registrations', label: 'My registrations', value: 3, helper: 'Sample activity', tone: 'success' },
+    { key: 'student-groups', label: 'Campus groups', value: 2, helper: 'Sample memberships', tone: 'neutral' },
+    { key: 'student-updates', label: 'New this week', value: 4, helper: 'Sample updates', tone: 'warning' },
+  ]),
+  VOLUNTEER: buildPreviewSummary('VOLUNTEER', 'Welcome, Riley.', [
+    { key: 'assigned-shifts', label: 'Assigned shifts', value: 2, helper: 'Sample assignments', tone: 'accent' },
+    { key: 'scheduled-hours', label: 'Hours scheduled', value: 6, helper: 'Sample schedule', tone: 'success' },
+    { key: 'volunteer-events', label: 'Upcoming events', value: 2, helper: 'Sample commitments', tone: 'neutral' },
+    { key: 'completed-tasks', label: 'Completed tasks', value: 5, helper: 'Sample activity', tone: 'warning' },
+  ]),
+};
+
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
@@ -120,6 +189,7 @@ function Home() {
           <Link href="/sign-up" className="button button-primary button-large" data-testid="link-create-account">Bring your campus together <ArrowRight size={17} /></Link>
           <Link href="/sign-in" className="hero-secondary" data-testid="link-returning-user">Already part of a campus? <span>Sign in</span></Link>
         </div>
+        {import.meta.env.DEV && <Link href="/dev/role-preview" className="role-preview-entry" data-testid="link-role-preview">Preview all five roles <ArrowRight size={14} /></Link>}
         <div className="hero-proof"><div className="proof-icons"><span>A</span><span>C</span><span>S</span><span>+</span></div><span>For every team behind campus life</span></div>
       </div>
       <div className="hero-art" aria-label="Illustration of a connected campus workspace">
@@ -282,7 +352,7 @@ function RoleWorkspace({ profile }: { profile: UserProfile }) {
   </WorkspaceFrame>;
 }
 
-function WorkspaceFrame({ profile, title, crumb, children }: { profile: UserProfile; title: string; crumb: string; children: ReactNode }) {
+function WorkspaceFrame({ profile, title, crumb, children, previewMode = false, onPreviewNavigate }: { profile: UserProfile; title: string; crumb: string; children: ReactNode; previewMode?: boolean; onPreviewNavigate?: (view: string) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
   const roleSlug = roleInfo[profile.role].slug;
@@ -298,19 +368,23 @@ function WorkspaceFrame({ profile, title, crumb, children }: { profile: UserProf
       <nav className="sidebar-nav" aria-label={`${roleInfo[profile.role].label} navigation`}>
         {navItems.map((item, index) => {
           const Icon = item.icon;
-          const active = index === 0 ? title === 'Overview' : item.href === '/profile' ? title === 'Your profile' : location === item.href;
-          return <Link href={item.href} key={item.href} className={`side-link ${active ? 'side-link-active' : ''}`} onClick={() => setMenuOpen(false)} data-testid={`nav-${slugify(item.label)}`} aria-current={active ? 'page' : undefined}><Icon size={17} strokeWidth={active ? 2.2 : 1.8} /><span>{item.label}</span>{active && <span className="nav-active-dot" />}</Link>;
+          const active = previewMode
+            ? item.label === 'My profile' ? title === 'Your profile' : item.label === title
+            : index === 0 ? title === 'Overview' : item.href === '/profile' ? title === 'Your profile' : location === item.href;
+          const itemContent = <><Icon size={17} strokeWidth={active ? 2.2 : 1.8} /><span>{item.label}</span>{active && <span className="nav-active-dot" />}</>;
+          if (previewMode) return <button type="button" key={item.href} className={`side-link side-link-button ${active ? 'side-link-active' : ''}`} onClick={() => { setMenuOpen(false); onPreviewNavigate?.(item.label); }} data-testid={`nav-${slugify(item.label)}`} aria-current={active ? 'page' : undefined}>{itemContent}</button>;
+          return <Link href={item.href} key={item.href} className={`side-link ${active ? 'side-link-active' : ''}`} onClick={() => setMenuOpen(false)} data-testid={`nav-${slugify(item.label)}`} aria-current={active ? 'page' : undefined}>{itemContent}</Link>;
         })}
       </nav>
       <div className="sidebar-bottom"><div className="sidebar-help"><span><CircleHelp size={16} /></span><div><b>Need a hand?</b><small>Your campus team can help.</small></div></div>
-        <div className="sidebar-user"><div className="user-monogram">{initialsText}</div><div className="user-details"><strong>{profile.name}</strong><small>{roleInfo[profile.role].label}</small></div><button onClick={signOutUser} className="icon-button signout-button" aria-label="Sign out" title="Sign out" data-testid="button-sign-out"><LogOut size={17} /></button></div>
+        <div className="sidebar-user"><div className="user-monogram">{initialsText}</div><div className="user-details"><strong>{profile.name}</strong><small>{roleInfo[profile.role].label}{previewMode ? ' · sample' : ''}</small></div>{previewMode ? <Link href="/" className="icon-button signout-button" aria-label="Exit role preview" title="Exit preview" data-testid="link-exit-role-preview"><LogOut size={17} /></Link> : <button onClick={signOutUser} className="icon-button signout-button" aria-label="Sign out" title="Sign out" data-testid="button-sign-out"><LogOut size={17} /></button>}</div>
       </div>
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close menu" onClick={() => setMenuOpen(false)} data-testid="button-menu-backdrop" />}
     <div className="workspace-main">
-      <header className="workspace-topbar"><div className="topbar-left"><button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open navigation" data-testid="button-open-menu"><Menu size={20} /></button><span className="topbar-campus">{profile.collegeName || 'Campus workspace'}</span><ChevronRight size={14} /><span className="topbar-crumb">{crumb}</span></div><div className="topbar-right"><span className="workspace-status"><i /> CAMPUS SPACE</span><Link href="/profile" className="topbar-avatar" aria-label="Open profile" data-testid="link-profile-avatar">{initialsText}</Link></div></header>
+      <header className="workspace-topbar"><div className="topbar-left"><button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Open navigation" data-testid="button-open-menu"><Menu size={20} /></button><span className="topbar-campus">{profile.collegeName || 'Campus workspace'}</span><ChevronRight size={14} /><span className="topbar-crumb">{crumb}</span></div><div className="topbar-right">{import.meta.env.DEV && !previewMode && <Link href="/dev/role-preview" className="workspace-preview-link" data-testid="link-role-preview">Preview roles</Link>}<span className="workspace-status"><i /> {previewMode ? 'SAMPLE PREVIEW' : 'CAMPUS SPACE'}</span>{previewMode ? <button type="button" className="topbar-avatar preview-avatar" aria-label="Preview profile" data-testid="button-preview-profile" onClick={() => onPreviewNavigate?.('My profile')}>{initialsText}</button> : <Link href="/profile" className="topbar-avatar" aria-label="Open profile" data-testid="link-profile-avatar">{initialsText}</Link>}</div></header>
       <main className="workspace-content"><div className="content-title-row"><div><span className="eyebrow">{crumb}</span><h1 className="font-display" data-testid="text-page-title">{title}</h1></div><div className="today-label"><Clock3 size={15} /><span>{new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date())}</span></div></div>{children}</main>
-      <footer className="workspace-footer"><span>EVENTURA <b>·</b> Campus, in sync.</span><Link href="/profile" data-testid="footer-profile">Account settings <ArrowUpRight size={13} /></Link></footer>
+      <footer className="workspace-footer"><span>EVENTURA <b>·</b> Campus, in sync.</span>{previewMode ? <button type="button" className="workspace-footer-preview-link" onClick={() => onPreviewNavigate?.('My profile')} data-testid="button-preview-footer-profile">Sample profile <ArrowUpRight size={13} /></button> : <Link href="/profile" data-testid="footer-profile">Account settings <ArrowUpRight size={13} /></Link>}</footer>
     </div>
   </div>;
 }
@@ -321,6 +395,10 @@ function DashboardContent({ profile }: { profile: UserProfile }) {
   if (summaryQuery.isError) return <ErrorState message="Dashboard information is temporarily unavailable." retry={() => summaryQuery.refetch()} />;
   const summary = summaryQuery.data;
   if (!summary) return <div className="empty-panel" data-testid="empty-dashboard"><div className="empty-icon"><LayoutDashboard size={20} /></div><h2>Your campus view is getting ready</h2><p>There is no dashboard information to show yet. Check back soon.</p></div>;
+  return <DashboardView profile={profile} summary={summary} />;
+}
+
+function DashboardView({ profile, summary }: { profile: UserProfile; summary: DashboardSummary }) {
   return <div className="dashboard-content page-enter">
     <section className="welcome-banner"><div className="welcome-copy"><span className="welcome-overline"><Sparkles size={14} /> YOUR CAMPUS PULSE</span><h2>{summary.greeting || `Good to see you, ${profile.name.split(' ')[0]}.`}</h2><p>A clear view of what is moving across your {roleInfo[profile.role].label.toLowerCase()} workspace.</p></div><div className="welcome-graphic"><div className="welcome-disc disc-back" /><div className="welcome-disc disc-mid" /><div className="welcome-disc disc-front"><Command size={26} /></div><span className="graphic-star star-a" /><span className="graphic-star star-b" /></div><span className="welcome-mark">E / CAMPUS</span></section>
     {summary.metrics?.length ? <section className="metric-grid" aria-label="Workspace metrics">{summary.metrics.map(metric => <article className={`metric-card metric-${metric.tone}`} key={metric.key} data-testid={`metric-${slugify(metric.key)}`}><div className="metric-top"><span>{metric.label}</span><span className={`metric-bullet tone-${metric.tone}`} /></div><strong className="font-display">{formatMetric(metric.value)}</strong><p>{metric.helper}</p></article>)}</section> : <div className="inline-empty" data-testid="empty-metrics">There are no workspace metrics to show yet.</div>}
@@ -337,8 +415,37 @@ function DashboardSkeleton() {
   return <div className="dashboard-content" aria-label="Loading dashboard" data-testid="skeleton-dashboard"><div className="skeleton skeleton-welcome" /><div className="skeleton-metrics">{[1,2,3,4].map(i => <div className="skeleton skeleton-metric" key={i} />)}</div><div className="skeleton-panels"><div className="skeleton skeleton-panel" /><div className="skeleton skeleton-panel" /></div></div>;
 }
 
-function PlaceholderPage({ title, role }: { title: string; role: AppRole }) {
-  return <section className="phase-placeholder page-enter" data-testid="phase-placeholder"><div className="placeholder-illustration"><div className="placeholder-ring ring-a" /><div className="placeholder-ring ring-b" /><div className="placeholder-center"><Compass size={27} /></div><span className="placeholder-chip chip-one"><span /> READY FOR PHASE 1</span><span className="placeholder-chip chip-two">E / {roleInfo[role].slug.toUpperCase()}</span></div><div className="placeholder-copy"><span className="eyebrow">A CLEAR PLACE TO START</span><h2>{title}</h2><p>This {roleInfo[role].label.toLowerCase()} workspace keeps your {title.toLowerCase()} destination easy to find. Detailed workflows are not part of this phase.</p><div className="phase-tag"><span /> PHASE 1 DESTINATION</div><Link href={`/${roleInfo[role].slug}`} className="button button-secondary" data-testid="link-back-overview"><ArrowRight size={15} /> Back to overview</Link></div><div className="placeholder-note"><ShieldCheck size={17} /><span>Role-aware navigation is active. This section is a Phase 1 placeholder, not an event workflow.</span></div></section>;
+function PlaceholderPage({ title, role, onBack }: { title: string; role: AppRole; onBack?: () => void }) {
+  return <section className="phase-placeholder page-enter" data-testid="phase-placeholder"><div className="placeholder-illustration"><div className="placeholder-ring ring-a" /><div className="placeholder-ring ring-b" /><div className="placeholder-center"><Compass size={27} /></div><span className="placeholder-chip chip-one"><span /> READY FOR PHASE 1</span><span className="placeholder-chip chip-two">E / {roleInfo[role].slug.toUpperCase()}</span></div><div className="placeholder-copy"><span className="eyebrow">A CLEAR PLACE TO START</span><h2>{title}</h2><p>This {roleInfo[role].label.toLowerCase()} workspace keeps your {title.toLowerCase()} destination easy to find. Detailed workflows are not part of this phase.</p><div className="phase-tag"><span /> PHASE 1 DESTINATION</div>{onBack ? <button type="button" className="button button-secondary" onClick={onBack} data-testid="button-preview-back-overview"><ArrowRight size={15} /> Back to overview</button> : <Link href={`/${roleInfo[role].slug}`} className="button button-secondary" data-testid="link-back-overview"><ArrowRight size={15} /> Back to overview</Link>}</div><div className="placeholder-note"><ShieldCheck size={17} /><span>Role-aware navigation is active. This section is a Phase 1 placeholder, not an event workflow.</span></div></section>;
+}
+
+function PreviewProfileContent({ profile }: { profile: UserProfile }) {
+  return <div className="profile-grid page-enter" data-testid="preview-profile">
+    <section className="profile-intro"><div className="profile-avatar">{initials(profile.name)}</div><span className="eyebrow">SAMPLE PROFILE</span><h2>{profile.name}</h2><p>This is preview data only. It is not a Clerk account and cannot change your real profile.</p><div className="profile-email"><span>ROLE</span><strong>{roleInfo[profile.role].label}</strong><small>Read-only development fixture</small></div><div className="profile-note"><ShieldCheck size={15} /><p>Profile editing is disabled in role preview.</p></div></section>
+    <section className="profile-form-card preview-profile-card"><div className="card-heading"><div><span className="eyebrow">PREVIEW ONLY</span><h2>Profile details</h2></div><span className="edit-badge">SAMPLE DATA</span></div><div className="preview-profile-fields">
+      <div><span>Name</span><strong>{profile.name}</strong></div><div><span>Sample email</span><strong>{profile.email}</strong></div><div><span>Campus</span><strong>{profile.collegeName ?? 'Not assigned'}</strong></div><div><span>Department</span><strong>{profile.profile.department ?? 'Not provided'}</strong></div><div><span>Phone</span><strong>{profile.profile.phone ?? 'Not provided'}</strong></div><div><span>Bio</span><strong>{profile.profile.bio ?? 'Not provided'}</strong></div>
+    </div></section>
+  </div>;
+}
+
+function RolePreviewPage() {
+  const [role, setRole] = useState<AppRole>('COLLEGE_ADMIN');
+  const [selectedView, setSelectedView] = useState('Overview');
+  const profile = previewProfiles[role];
+  const selectView = (view: string) => setSelectedView(view === 'My profile' ? 'Your profile' : view);
+  let content: ReactNode;
+  if (selectedView === 'Overview') {
+    content = <DashboardView profile={profile} summary={previewSummaries[role]} />;
+  } else if (selectedView === 'Your profile') {
+    content = <PreviewProfileContent profile={profile} />;
+  } else {
+    content = <PlaceholderPage title={selectedView} role={role} onBack={() => setSelectedView('Overview')} />;
+  }
+
+  return <div className="role-preview-page" data-testid="dev-role-preview">
+    <header className="role-preview-header"><div className="role-preview-copy"><span className="role-preview-kicker"><ShieldCheck size={15} /> DEVELOPMENT PREVIEW <i /> SAMPLE DATA</span><p>Switch roles to inspect each dashboard shell. This does not change your account or grant API access.</p></div><div className="role-preview-actions"><div className="role-preview-switcher" aria-label="Choose a sample role">{roleOrder.map(roleKey => <button type="button" key={roleKey} className={`role-preview-tab ${role === roleKey ? 'role-preview-tab-active' : ''}`} aria-pressed={role === roleKey} onClick={() => { setRole(roleKey); setSelectedView('Overview'); }} data-testid={`preview-role-${roleInfo[roleKey].slug}`}>{roleInfo[roleKey].label}</button>)}</div><Link href="/" className="role-preview-exit" data-testid="link-exit-role-preview">Exit preview <ArrowUpRight size={14} /></Link></div></header>
+    <WorkspaceFrame profile={profile} title={selectedView} crumb={roleInfo[role].label.toUpperCase()} previewMode onPreviewNavigate={selectView}>{content}</WorkspaceFrame>
+  </div>;
 }
 
 function WorkspaceRoute({ role }: { role: AppRole }) {
@@ -352,6 +459,7 @@ function AppRoutes() {
     <Route path="/sign-up/*?" component={SignUpPage} />
     <Route path="/portal" component={PortalPage} />
     <Route path="/profile" component={ProfilePage} />
+    {import.meta.env.DEV && <Route path="/dev/role-preview" component={RolePreviewPage} />}
     <Route path="/admin/:module?" component={() => <WorkspaceRoute role="COLLEGE_ADMIN" />} />
     <Route path="/club/:module?" component={() => <WorkspaceRoute role="CLUB" />} />
     <Route path="/organizer/:module?" component={() => <WorkspaceRoute role="ORGANIZER" />} />
