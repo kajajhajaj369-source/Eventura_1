@@ -6,7 +6,7 @@ import { publishableKeyFromHost } from '@clerk/react/internal';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, CircleHelp, Clock3, Command, Compass, GraduationCap, LayoutDashboard, LogOut, Menu, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
-import { useGetCurrentUser, useGetDashboardSummary, useUpdateMyProfile, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
+import { useGetCurrentUser, useGetDashboardSummary, useUpdateMyProfile, getGetCurrentUserQueryKey, setAuthTokenGetter } from '@workspace/api-client-react';
 import type { AppRole, DashboardSummary, ProfileUpdate, UserProfile } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -145,7 +145,11 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
 
 function CacheUserInvalidator() {
   const { addListener } = useClerk();
+  const { getToken } = useAuth();
   const client = useQueryClient();
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+  }, [getToken]);
   useEffect(() => {
     let previousId: string | null | undefined;
     return addListener(({ user }) => {
@@ -254,7 +258,7 @@ function ProfileQueryState({ children }: { children: (profile: UserProfile) => R
   const query = useGetCurrentUser();
   if (query.isLoading) return <LoadingPage label="Finding your campus profile" />;
   if (query.isError) return <main className="center-state"><ErrorState message="Your profile is temporarily unavailable. Please try again." retry={() => query.refetch()} /></main>;
-  if (!query.data) return <main className="center-state"><div className="state-card"><h2>Profile not found</h2><p>We couldn't find an account profile for this session.</p><Link className="button button-primary" href="/">Return home</Link></div></main>;
+  if (!query.data || typeof query.data !== 'object' || !('role' in (query.data as object))) return <main className="center-state"><div className="state-card"><h2>Profile not found</h2><p>We couldn't find an account profile for this session.</p><Link className="button button-primary" href="/">Return home</Link></div></main>;
   return <>{children(query.data)}</>;
 }
 
@@ -268,7 +272,10 @@ function PortalPage() {
   const { isLoaded, isSignedIn } = useAuth();
   if (!isLoaded) return <LoadingPage label="Checking your session" />;
   if (!isSignedIn) return <Redirect to="/" />;
-  return <ProfileQueryState>{profile => <Redirect to={`/${roleInfo[profile.role].slug}`} />}</ProfileQueryState>;
+  return <ProfileQueryState>{profile => {
+    const slug = roleInfo[profile?.role]?.slug || 'student';
+    return <Redirect to={`/${slug}`} />;
+  }}</ProfileQueryState>;
 }
 
 function SignInPage() {
@@ -290,8 +297,9 @@ function ProtectedRole({ role }: { role: AppRole }) {
 }
 
 function AccessDenied({ role, requestedRole }: { role: AppRole; requestedRole: AppRole }) {
-  const requested = roleInfo[requestedRole].label;
-  return <main className="center-state"><div className="state-card access-card"><div className="state-icon"><ShieldCheck size={21} /></div><span className="eyebrow">ROLE-RESTRICTED WORKSPACE</span><h2>This view is for {requested}</h2><p>Your profile is set up for <b>{roleInfo[role].label}</b>. We keep each workspace scoped to its assigned role.</p><Link href={`/${roleInfo[role].slug}`} className="button button-primary" data-testid="link-your-workspace">Go to your workspace <ArrowRight size={15} /></Link></div></main>;
+  const requested = roleInfo[requestedRole]?.label || requestedRole;
+  const currentRoleInfo = roleInfo[role] || { label: 'Student', slug: 'student' };
+  return <main className="center-state"><div className="state-card access-card"><div className="state-icon"><ShieldCheck size={21} /></div><span className="eyebrow">ROLE-RESTRICTED WORKSPACE</span><h2>This view is for {requested}</h2><p>Your profile is set up for <b>{currentRoleInfo.label}</b>. We keep each workspace scoped to its assigned role.</p><Link href={`/${currentRoleInfo.slug}`} className="button button-primary" data-testid="link-your-workspace">Go to your workspace <ArrowRight size={15} /></Link></div></main>;
 }
 
 function ProfilePage() {
@@ -477,7 +485,7 @@ function ClerkProviderWithRouter() {
   const [, setLocation] = useLocation();
   return <ClerkProvider
     publishableKey={clerkPubKey}
-    proxyUrl={import.meta.env.VITE_CLERK_PROXY_URL}
+    proxyUrl={import.meta.env.PROD ? (import.meta.env.VITE_CLERK_PROXY_URL || undefined) : undefined}
     appearance={clerkAppearance}
     signInUrl={basePath + '/sign-in'}
     signUpUrl={basePath + '/sign-up'}

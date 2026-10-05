@@ -532,28 +532,45 @@ async function seedDemoCampus(
     category: "ACADEMIC",
   });
 
-  const registrations = await Promise.all([
+
+  // ── Registrations ────────────────────────────────────────────────────────
+  // eventOne: all 3 students + volunteer1 registered (4 registrations)
+  // eventTwo: all 3 students registered (3 registrations)
+  const [reg1, reg2, reg3, reg4, reg5, reg6] = await Promise.all([
     ensureRegistration(eventOne.id, student1.id),
     ensureRegistration(eventOne.id, student2.id),
-    ensureRegistration(eventTwo.id, student3.id),
+    ensureRegistration(eventOne.id, student3.id),
+    ensureRegistration(eventOne.id, volunteer1.id),
+    ensureRegistration(eventTwo.id, student1.id),
+    ensureRegistration(eventTwo.id, student2.id),
   ]);
-  const [attendance] = await db
-    .select({ id: attendanceTable.id })
-    .from(attendanceTable)
-    .where(eq(attendanceTable.registrationId, registrations[0]))
-    .limit(1);
-  if (!attendance) {
-    await db
-      .insert(attendanceTable)
-      .values({
-        registrationId: registrations[0],
-        checkedInBy: volunteer1.id,
-      })
-      .onConflictDoNothing();
+  const reg7 = await ensureRegistration(eventTwo.id, student3.id);
+
+  // ── Attendance ───────────────────────────────────────────────────────────
+  // Mark student1, student2, volunteer1 as attended eventOne
+  for (const [regId, checkedInBy] of [
+    [reg1, volunteer1.id],
+    [reg2, volunteer1.id],
+    [reg4, volunteer2.id],
+  ] as [string, string][]) {
+    const [existing] = await db
+      .select({ id: attendanceTable.id })
+      .from(attendanceTable)
+      .where(eq(attendanceTable.registrationId, regId))
+      .limit(1);
+    if (!existing) {
+      await db
+        .insert(attendanceTable)
+        .values({ registrationId: regId, checkedInBy })
+        .onConflictDoNothing();
+    }
   }
 
+  // ── Volunteer tasks ───────────────────────────────────────────────────────
   const task1 = await getDemoTask(eventOne.id, volunteer1.id, "Welcome desk");
   const task2 = await getDemoTask(eventOne.id, volunteer2.id, "Room support");
+  const task3 = await getDemoTask(eventOne.id, volunteer1.id, "Stage setup");
+  const task4 = await getDemoTask(eventTwo.id, volunteer2.id, "Registration booth");
   await Promise.all([
     ensureVolunteerAssignment({
       eventId: eventOne.id,
@@ -571,125 +588,310 @@ async function seedDemoCampus(
       startsAt: eventOne.startsAt,
       endsAt: eventOne.endsAt,
     }),
+    ensureVolunteerAssignment({
+      eventId: eventOne.id,
+      volunteerId: volunteer1.id,
+      taskId: task3,
+      dutyRole: "STAGE_CREW",
+      startsAt: new Date(eventOne.startsAt.getTime() - 2 * 60 * 60 * 1000),
+      endsAt: eventOne.startsAt,
+    }),
+    ensureVolunteerAssignment({
+      eventId: eventTwo.id,
+      volunteerId: volunteer2.id,
+      taskId: task4,
+      dutyRole: "REGISTRATION",
+      startsAt: eventTwo.startsAt,
+      endsAt: eventTwo.endsAt,
+    }),
   ]);
 
-  const [budget] = await db
-    .select({ id: budgetsTable.id })
-    .from(budgetsTable)
-    .where(eq(budgetsTable.eventId, eventOne.id))
-    .limit(1);
-  let budgetId = budget?.id;
-  if (!budgetId) {
-    const [created] = await db
-      .insert(budgetsTable)
-      .values({ eventId: eventOne.id, allocatedAmount: "25000.00" })
-      .onConflictDoNothing()
-      .returning({ id: budgetsTable.id });
-    budgetId = created?.id;
-  }
-  if (budgetId) {
-    const [expense] = await db
-      .select({ id: expensesTable.id })
-      .from(expensesTable)
-      .where(
-        and(
-          eq(expensesTable.budgetId, budgetId),
-          eq(expensesTable.description, "Demo printing and materials"),
-        ),
-      )
+  // ── Budgets & Expenses ────────────────────────────────────────────────────
+  // eventOne budget
+  let budgetOneId: string | undefined;
+  {
+    const [existing] = await db
+      .select({ id: budgetsTable.id })
+      .from(budgetsTable)
+      .where(eq(budgetsTable.eventId, eventOne.id))
       .limit(1);
-    if (!expense) {
-      await db.insert(expensesTable).values({
-        budgetId,
-        submittedBy: organizer.id,
-        category: "MATERIALS",
-        amount: "3200.00",
-        description: "Demo printing and materials",
-        status: "SUBMITTED",
-        spentAt: futureAtDayOffset(-1),
+    budgetOneId = existing?.id;
+    if (!budgetOneId) {
+      const [created] = await db
+        .insert(budgetsTable)
+        .values({ eventId: eventOne.id, allocatedAmount: "35000.00", status: "APPROVED" })
+        .onConflictDoNothing()
+        .returning({ id: budgetsTable.id });
+      budgetOneId = created?.id;
+    }
+  }
+  if (budgetOneId) {
+    for (const expense of [
+      { category: "MATERIALS",   amount: "4200.00",  description: "Printed banners and brochures",    status: "APPROVED",   daysAgo: -3 },
+      { category: "CATERING",    amount: "9500.00",  description: "Refreshments and snacks",          status: "APPROVED",   daysAgo: -2 },
+      { category: "AUDIO_VIDEO", amount: "7800.00",  description: "Sound system and projector rental", status: "SUBMITTED",  daysAgo: -1 },
+      { category: "TRANSPORT",   amount: "2100.00",  description: "Guest speaker travel reimbursement", status: "SUBMITTED", daysAgo: 0 },
+      { category: "DECOR",       amount: "1500.00",  description: "Stage decoration and props",        status: "PENDING",    daysAgo: 0 },
+    ] as { category: string; amount: string; description: string; status: string; daysAgo: number }[]) {
+      const [existing] = await db
+        .select({ id: expensesTable.id })
+        .from(expensesTable)
+        .where(and(eq(expensesTable.budgetId, budgetOneId), eq(expensesTable.description, expense.description)))
+        .limit(1);
+      if (!existing) {
+        await db.insert(expensesTable).values({
+          budgetId: budgetOneId,
+          submittedBy: organizer.id,
+          category: expense.category,
+          amount: expense.amount,
+          description: expense.description,
+          status: expense.status,
+          spentAt: futureAtDayOffset(expense.daysAgo),
+        });
+      }
+    }
+  }
+
+  // eventTwo budget
+  let budgetTwoId: string | undefined;
+  {
+    const [existing] = await db
+      .select({ id: budgetsTable.id })
+      .from(budgetsTable)
+      .where(eq(budgetsTable.eventId, eventTwo.id))
+      .limit(1);
+    budgetTwoId = existing?.id;
+    if (!budgetTwoId) {
+      const [created] = await db
+        .insert(budgetsTable)
+        .values({ eventId: eventTwo.id, allocatedAmount: "18000.00", status: "DRAFT" })
+        .onConflictDoNothing()
+        .returning({ id: budgetsTable.id });
+      budgetTwoId = created?.id;
+    }
+  }
+  if (budgetTwoId) {
+    for (const expense of [
+      { category: "PRINTING",    amount: "2800.00", description: "Research poster printing",     status: "SUBMITTED",  daysAgo: -1 },
+      { category: "CATERING",    amount: "5000.00", description: "Light refreshments for guests", status: "PENDING",   daysAgo: 0 },
+    ] as { category: string; amount: string; description: string; status: string; daysAgo: number }[]) {
+      const [existing] = await db
+        .select({ id: expensesTable.id })
+        .from(expensesTable)
+        .where(and(eq(expensesTable.budgetId, budgetTwoId), eq(expensesTable.description, expense.description)))
+        .limit(1);
+      if (!existing) {
+        await db.insert(expensesTable).values({
+          budgetId: budgetTwoId,
+          submittedBy: organizer.id,
+          category: expense.category,
+          amount: expense.amount,
+          description: expense.description,
+          status: expense.status,
+          spentAt: futureAtDayOffset(expense.daysAgo),
+        });
+      }
+    }
+  }
+
+  // ── Feedback ─────────────────────────────────────────────────────────────
+  // Feedback for eventOne from student1, student2, student3
+  for (const [userId, rating, comment] of [
+    [student1.id, 5, "Excellent event! Well organised and very engaging. Looking forward to the next one."],
+    [student2.id, 4, "Really enjoyed the sessions. The venue was great and the team was helpful."],
+    [student3.id, 4, "Good event overall. Would love more networking time between sessions."],
+  ] as [string, number, string][]) {
+    const [existing] = await db
+      .select({ id: feedbackTable.id })
+      .from(feedbackTable)
+      .where(and(eq(feedbackTable.eventId, eventOne.id), eq(feedbackTable.userId, userId)))
+      .limit(1);
+    if (!existing) {
+      await db.insert(feedbackTable).values({ eventId: eventOne.id, userId, rating, comment });
+    }
+  }
+  // Feedback for eventTwo from student1
+  {
+    const [existing] = await db
+      .select({ id: feedbackTable.id })
+      .from(feedbackTable)
+      .where(and(eq(feedbackTable.eventId, eventTwo.id), eq(feedbackTable.userId, student1.id)))
+      .limit(1);
+    if (!existing) {
+      await db.insert(feedbackTable).values({
+        eventId: eventTwo.id,
+        userId: student1.id,
+        rating: 5,
+        comment: "Fantastic research presentations. Very inspiring to see student innovation on display.",
       });
     }
   }
 
-  const [existingFeedback] = await db
-    .select({ id: feedbackTable.id })
-    .from(feedbackTable)
-    .where(
-      and(
-        eq(feedbackTable.eventId, eventOne.id),
-        eq(feedbackTable.userId, student1.id),
-      ),
-    )
-    .limit(1);
-  if (!existingFeedback) {
-    await db.insert(feedbackTable).values({
-      eventId: eventOne.id,
-      userId: student1.id,
-      rating: 5,
-      comment: "A sample feedback record for the dashboard foundation.",
-    });
-  }
-
-  const [existingCertificate] = await db
-    .select({ id: certificatesTable.id })
-    .from(certificatesTable)
-    .where(
-      and(
-        eq(certificatesTable.eventId, eventOne.id),
-        eq(certificatesTable.recipientId, student1.id),
-      ),
-    )
-    .limit(1);
-  if (!existingCertificate) {
-    await db
-      .insert(certificatesTable)
-      .values({
+  // ── Certificates ──────────────────────────────────────────────────────────
+  // eventOne certificates: student1 ISSUED, student2 ISSUED, student3 PENDING, volunteer1 AWARDED
+  for (const [recipientId, certificateType, status, issuedAt] of [
+    [student1.id,   "PARTICIPATION",  "ISSUED",  futureAtDayOffset(-2)],
+    [student2.id,   "PARTICIPATION",  "ISSUED",  futureAtDayOffset(-2)],
+    [student3.id,   "PARTICIPATION",  "PENDING", null],
+    [volunteer1.id, "APPRECIATION",   "ISSUED",  futureAtDayOffset(-1)],
+    [organizer.id,  "ORGANIZER",      "ISSUED",  futureAtDayOffset(-1)],
+  ] as [string, string, string, Date | null][]) {
+    const [existing] = await db
+      .select({ id: certificatesTable.id })
+      .from(certificatesTable)
+      .where(and(eq(certificatesTable.eventId, eventOne.id), eq(certificatesTable.recipientId, recipientId)))
+      .limit(1);
+    if (!existing) {
+      await db.insert(certificatesTable).values({
         eventId: eventOne.id,
-        recipientId: student1.id,
+        recipientId,
+        certificateType,
+        status,
+        issuedAt: issuedAt ?? undefined,
+      }).onConflictDoNothing();
+    }
+  }
+  // eventTwo certificates: student1 PENDING, student2 PENDING
+  for (const [recipientId, certificateType] of [
+    [student1.id, "PARTICIPATION"],
+    [student2.id, "PARTICIPATION"],
+    [student3.id, "PARTICIPATION"],
+  ] as [string, string][]) {
+    const [existing] = await db
+      .select({ id: certificatesTable.id })
+      .from(certificatesTable)
+      .where(and(eq(certificatesTable.eventId, eventTwo.id), eq(certificatesTable.recipientId, recipientId)))
+      .limit(1);
+    if (!existing) {
+      await db.insert(certificatesTable).values({
+        eventId: eventTwo.id,
+        recipientId,
+        certificateType,
         status: "PENDING",
-      })
-      .onConflictDoNothing();
+      }).onConflictDoNothing();
+    }
   }
 
-  const [existingNotification] = await db
-    .select({ id: notificationsTable.id })
-    .from(notificationsTable)
-    .where(
-      and(
-        eq(notificationsTable.recipientId, student1.id),
-        eq(notificationsTable.title, "Welcome to EVENTURA"),
-      ),
-    )
-    .limit(1);
-  if (!existingNotification) {
-    await db.insert(notificationsTable).values({
+  // ── Notifications ─────────────────────────────────────────────────────────
+  const notifEntries: { recipientId: string; title: string; body: string; category: string }[] = [
+    {
       recipientId: student1.id,
+      title: "Welcome to EVENTURA",
+      body: "Your campus event dashboard is ready. Start exploring upcoming events!",
+      category: "GENERAL",
+    },
+    {
+      recipientId: student1.id,
+      title: "Your certificate is ready",
+      body: `Your participation certificate for ${eventOne.title} has been issued. Download it from your Certificates section.`,
+      category: "CERTIFICATE",
+    },
+    {
+      recipientId: student2.id,
+      title: "Welcome to EVENTURA",
+      body: "Your campus event dashboard is ready. Start exploring upcoming events!",
+      category: "GENERAL",
+    },
+    {
+      recipientId: student2.id,
+      title: "Your certificate is ready",
+      body: `Your participation certificate for ${eventOne.title} has been issued.`,
+      category: "CERTIFICATE",
+    },
+    {
+      recipientId: student3.id,
       title: "Welcome to EVENTURA",
       body: "Your campus event dashboard is ready.",
       category: "GENERAL",
-    });
+    },
+    {
+      recipientId: student3.id,
+      title: "Registration confirmed",
+      body: `You are registered for ${eventOne.title}. Your QR pass will be available closer to the event.`,
+      category: "REGISTRATION",
+    },
+    {
+      recipientId: organizer.id,
+      title: "Event approved",
+      body: `${eventOne.title} has been approved and is now published.`,
+      category: "EVENT",
+    },
+    {
+      recipientId: volunteer1.id,
+      title: "Assignment confirmed",
+      body: `You have been assigned to the Welcome Desk for ${eventOne.title}.`,
+      category: "VOLUNTEER",
+    },
+    {
+      recipientId: admin.id,
+      title: "Pending approval",
+      body: `${eventTwo.title} is awaiting your review and approval.`,
+      category: "APPROVAL",
+    },
+  ];
+  for (const notif of notifEntries) {
+    const [existing] = await db
+      .select({ id: notificationsTable.id })
+      .from(notificationsTable)
+      .where(and(eq(notificationsTable.recipientId, notif.recipientId), eq(notificationsTable.title, notif.title)))
+      .limit(1);
+    if (!existing) {
+      await db.insert(notificationsTable).values(notif);
+    }
   }
 
-  const [existingAuditEntry] = await db
-    .select({ id: auditLogsTable.id })
-    .from(auditLogsTable)
-    .where(
-      and(
-        eq(auditLogsTable.collegeId, college.id),
-        eq(auditLogsTable.actorId, admin.id),
-        eq(auditLogsTable.action, "DEMO_DATA_READY"),
-      ),
-    )
-    .limit(1);
-  if (!existingAuditEntry) {
-    await db.insert(auditLogsTable).values({
-      collegeId: college.id,
-      actorId: admin.id,
+  // ── Audit logs ────────────────────────────────────────────────────────────
+  const auditEntries: { action: string; entityType: string; entityId: string; metadata: Record<string, unknown> }[] = [
+    {
+      action: "EVENT_PUBLISHED",
+      entityType: "EVENT",
+      entityId: eventOne.id,
+      metadata: { title: eventOne.title, publishedBy: admin.id },
+    },
+    {
+      action: "EVENT_SUBMITTED",
+      entityType: "EVENT",
+      entityId: eventTwo.id,
+      metadata: { title: eventTwo.title, submittedBy: organizer.id },
+    },
+    {
+      action: "CERTIFICATE_ISSUED",
+      entityType: "CERTIFICATE",
+      entityId: eventOne.id,
+      metadata: { recipientCount: 2, eventTitle: eventOne.title },
+    },
+    {
+      action: "BUDGET_APPROVED",
+      entityType: "BUDGET",
+      entityId: eventOne.id,
+      metadata: { allocatedAmount: "35000.00", currency: "INR" },
+    },
+    {
       action: "DEMO_DATA_READY",
       entityType: "DEMO_SEED",
       entityId: eventOne.id,
       metadata: { fixture: "development-only" },
-    });
+    },
+  ];
+  for (const entry of auditEntries) {
+    const [existing] = await db
+      .select({ id: auditLogsTable.id })
+      .from(auditLogsTable)
+      .where(
+        and(
+          eq(auditLogsTable.collegeId, college.id),
+          eq(auditLogsTable.actorId, admin.id),
+          eq(auditLogsTable.action, entry.action),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      await db.insert(auditLogsTable).values({
+        collegeId: college.id,
+        actorId: admin.id,
+        ...entry,
+      });
+    }
   }
 }
 
